@@ -1,0 +1,927 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ChangeManagement 系统架构图</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: 'Courier New', Consolas, Monaco, monospace;
+      background: #f5f5f5;
+      color: #333;
+      line-height: 1.6;
+    }
+
+    .container {
+      max-width: 1400px;
+      margin: 0 auto;
+      padding: 40px;
+    }
+
+    /* Header */
+    .header {
+      text-align: center;
+      margin-bottom: 40px;
+    }
+
+    .header h1 {
+      font-size: 32px;
+      font-weight: bold;
+      margin-bottom: 10px;
+      color: #1a1a1a;
+    }
+
+    .header p {
+      font-size: 16px;
+      color: #666;
+    }
+
+    /* Architecture Diagram */
+    .architecture {
+      background: #fff;
+      padding: 30px;
+      border-radius: 8px;
+      box-shadow: 0 4px 20px rgba(0,0,0,0.1);
+    }
+
+    /* Layer */
+    .layer {
+      position: relative;
+      margin-bottom: 20px;
+      padding: 15px;
+      border: 2px solid #333;
+      background: #fff;
+    }
+
+    .layer-label {
+      position: absolute;
+      top: -12px;
+      left: 20px;
+      background: #fff;
+      padding: 0 10px;
+      font-weight: bold;
+      font-size: 14px;
+      border: 2px solid #333;
+    }
+
+    /* Theme Colors */
+    .layer.theme-green {
+      border-color: #2e7d32;
+    }
+    .layer.theme-green .layer-label {
+      border-color: #2e7d32;
+      color: #2e7d32;
+    }
+
+    .layer.theme-purple {
+      border-color: #7b1fa2;
+    }
+    .layer.theme-purple .layer-label {
+      border-color: #7b1fa2;
+      color: #7b1fa2;
+    }
+
+    .layer.theme-red {
+      border-color: #c62828;
+    }
+    .layer.theme-red .layer-label {
+      border-color: #c62828;
+      color: #c62828;
+    }
+
+    .layer.theme-orange {
+      border-color: #f57c00;
+    }
+    .layer.theme-orange .layer-label {
+      border-color: #f57c00;
+      color: #f57c00;
+    }
+
+    /* Component Box */
+    .component-box {
+      border: 2px solid #333;
+      background: #fafafa;
+      padding: 12px 15px;
+      min-width: 120px;
+      text-align: center;
+      font-size: 13px;
+    }
+
+    .component-box.theme-green {
+      border-color: #2e7d32;
+      background: #e8f5e9;
+    }
+
+    .component-box.theme-purple {
+      border-color: #7b1fa2;
+      background: #f3e5f5;
+    }
+
+    .component-box.theme-red {
+      border-color: #c62828;
+      background: #ffebee;
+    }
+
+    .component-box.theme-orange {
+      border-color: #f57c00;
+      background: #fff3e0;
+    }
+
+    .component-title {
+      font-weight: bold;
+      font-size: 14px;
+      margin-bottom: 4px;
+    }
+
+    .component-tech {
+      color: #666;
+      font-size: 11px;
+      margin-bottom: 4px;
+    }
+
+    .component-desc {
+      color: #999;
+      font-size: 11px;
+    }
+
+    /* Sub Box */
+    .sub-box {
+      border: 1px solid #999;
+      background: #fff;
+      padding: 8px 12px;
+      font-size: 12px;
+      text-align: center;
+      min-width: 80px;
+    }
+
+    /* Component Row */
+    .component-row {
+      display: flex;
+      justify-content: center;
+      gap: 20px;
+      margin-bottom: 15px;
+      flex-wrap: wrap;
+    }
+
+    /* Module Group */
+    .module-group {
+      border: 2px dashed #666;
+      padding: 15px;
+      margin: 10px;
+      background: #fafafa;
+    }
+
+    .module-title {
+      font-size: 12px;
+      color: #666;
+      margin-bottom: 10px;
+      text-align: center;
+    }
+
+    /* Arrow Down */
+    .arrow-down {
+      text-align: center;
+      font-size: 24px;
+      color: #333;
+      margin: 10px 0;
+      line-height: 1;
+    }
+
+    .arrow-label {
+      font-size: 12px;
+      color: #666;
+    }
+
+    /* Legend */
+    .legend {
+      margin-top: 30px;
+      padding: 20px;
+      background: #f9f9f9;
+      border: 1px solid #ddd;
+      border-radius: 4px;
+    }
+
+    .legend-title {
+      font-weight: bold;
+      margin-bottom: 15px;
+      text-align: center;
+    }
+
+    .legend-items {
+      display: flex;
+      justify-content: center;
+      flex-wrap: wrap;
+      gap: 20px;
+    }
+
+    .legend-item {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .legend-box {
+      width: 40px;
+      height: 25px;
+      border: 2px solid #333;
+    }
+
+    /* Statistics */
+    .statistics {
+      margin-top: 30px;
+      padding: 20px;
+      background: #f5f5f5;
+      border: 1px solid #ddd;
+      border-radius: 4px;
+    }
+
+    .stats-title {
+      text-align: center;
+      font-weight: bold;
+      margin-bottom: 15px;
+    }
+
+    .stats-items {
+      display: flex;
+      justify-content: space-around;
+      flex-wrap: wrap;
+      gap: 20px;
+    }
+
+    .stat-item {
+      text-align: center;
+    }
+
+    .stat-number {
+      font-size: 24px;
+      font-weight: bold;
+      margin-bottom: 5px;
+    }
+
+    .stat-label {
+      font-size: 12px;
+      color: #666;
+    }
+
+    /* Data Flow */
+    .data-flow {
+      margin-top: 30px;
+      padding: 20px;
+      background: #fafafa;
+      border: 1px solid #ddd;
+      border-radius: 4px;
+    }
+
+    .flow-title {
+      text-align: center;
+      font-weight: bold;
+      margin-bottom: 15px;
+    }
+
+    .flow-steps {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-wrap: wrap;
+      gap: 10px;
+    }
+
+    .flow-step {
+      padding: 8px 15px;
+      border: 2px solid;
+      background: #fff;
+      font-size: 13px;
+    }
+
+    .flow-arrow {
+      font-size: 20px;
+      color: #666;
+    }
+
+    /* API Routes Grid */
+    .api-section {
+      margin-top: 30px;
+      padding: 20px;
+      background: #f9f9f9;
+      border: 1px solid #ddd;
+      border-radius: 4px;
+    }
+
+    .api-title {
+      text-align: center;
+      font-weight: bold;
+      margin-bottom: 15px;
+    }
+
+    .api-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+      gap: 10px;
+    }
+
+    .api-route {
+      padding: 8px;
+      border: 1px solid #ddd;
+      background: #fff;
+      text-align: center;
+      font-size: 12px;
+      font-family: 'Courier New', monospace;
+    }
+
+    .api-method {
+      font-weight: bold;
+      color: #666;
+    }
+
+    /* Status Flow */
+    .status-flow {
+      margin-top: 30px;
+      padding: 20px;
+      background: #fafafa;
+      border: 1px solid #ddd;
+      border-radius: 4px;
+    }
+
+    .status-title {
+      text-align: center;
+      font-weight: bold;
+      margin-bottom: 15px;
+    }
+
+    .status-diagram {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-wrap: wrap;
+      gap: 15px;
+      font-size: 12px;
+    }
+
+    .status-box {
+      padding: 8px 15px;
+      border: 2px solid;
+      background: #fff;
+      font-weight: bold;
+    }
+
+    /* Responsive */
+    @media (max-width: 768px) {
+      .container {
+        padding: 20px;
+      }
+      .component-row {
+        flex-direction: column;
+        align-items: center;
+      }
+      .component-box {
+        width: 100%;
+        max-width: 300px;
+      }
+      .flow-steps,
+      .status-diagram {
+        flex-direction: column;
+      }
+      .flow-arrow {
+        transform: rotate(90deg);
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <!-- Header -->
+    <div class="header">
+      <h1>🔄 ChangeManagement - 系统架构图</h1>
+      <p>企业级变更管理系统 · 模块化权限控制 · Checklist 驱动执行流程</p>
+    </div>
+
+    <!-- Architecture Diagram -->
+    <div class="architecture">
+
+      <!-- Layer 1: Frontend Layer -->
+      <div class="layer theme-green">
+        <div class="layer-label">用户界面层 (Frontend Layer)</div>
+
+        <div class="component-row">
+          <div class="component-box theme-green">
+            <div class="component-title">📊 仪表盘</div>
+            <div class="component-tech">Next.js + React</div>
+            <div class="component-desc">系统概览、统计数据、快速入口</div>
+          </div>
+          <div class="component-box theme-green">
+            <div class="component-title">📋 变更管理</div>
+            <div class="component-tech">/changes/*</div>
+            <div class="component-desc">变更列表、创建、详情、审批</div>
+          </div>
+          <div class="component-box theme-green">
+            <div class="component-title">✅ 我的待办</div>
+            <div class="component-tech">/my-tasks</div>
+            <div class="component-desc">Checklist执行、审批任务</div>
+          </div>
+          <div class="component-box theme-green">
+            <div class="component-title">📦 模块管理</div>
+            <div class="component-tech">/modules/*</div>
+            <div class="component-desc">模块列表、我的模块、编辑</div>
+          </div>
+          <div class="component-box theme-green">
+            <div class="component-title">📝 Checklist管理</div>
+            <div class="component-tech">/checklists</div>
+            <div class="component-desc">模板创建、编辑、检查项配置</div>
+          </div>
+          <div class="component-box theme-green">
+            <div class="component-title">🔔 审批中心</div>
+            <div class="component-tech">/approvals</div>
+            <div class="component-desc">集中式审批队列、快速操作</div>
+          </div>
+        </div>
+
+        <div class="component-row">
+          <div class="sub-box">📜 变更历史 /history</div>
+          <div class="sub-box">👤 登录 /login</div>
+        </div>
+      </div>
+
+      <div class="arrow-down">
+        ↓
+        <div class="arrow-label">HTTP/JSON · Client Components</div>
+      </div>
+
+      <!-- Layer 2: API Layer -->
+      <div class="layer theme-purple">
+        <div class="layer-label">API 路由层 (API Layer)</div>
+
+        <div class="module-group">
+          <div class="module-title">认证 & 用户管理</div>
+          <div class="component-row">
+            <div class="component-box theme-purple">
+              <div class="component-title">POST/DELETE /api/auth</div>
+              <div class="component-tech">bcrypt + Iron-session</div>
+              <div class="component-desc">用户登录/登出</div>
+            </div>
+            <div class="component-box theme-purple">
+              <div class="component-title">GET /api/me</div>
+              <div class="component-tech">Session Check</div>
+              <div class="component-desc">当前用户信息</div>
+            </div>
+            <div class="component-box theme-purple">
+              <div class="component-title">GET /api/users</div>
+              <div class="component-tech">User List</div>
+              <div class="component-desc">用户选择器数据</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="module-group">
+          <div class="module-title">变更项目管理</div>
+          <div class="component-row">
+            <div class="component-box theme-purple">
+              <div class="component-title">GET/POST /api/changes</div>
+              <div class="component-tech">Template Instantiation</div>
+              <div class="component-desc">变更列表/创建</div>
+            </div>
+            <div class="component-box theme-purple">
+              <div class="component-title">GET/PATCH /api/changes/[id]</div>
+              <div class="component-tech">Status Management</div>
+              <div class="component-desc">变更详情/执行/审批</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="module-group">
+          <div class="module-title">模块管理</div>
+          <div class="component-row">
+            <div class="component-box theme-purple">
+              <div class="component-title">GET/POST/PUT /api/modules</div>
+              <div class="component-tech">Permission Check</div>
+              <div class="component-desc">模块CRUD + 权限验证</div>
+            </div>
+            <div class="component-box theme-purple">
+              <div class="component-title">GET /api/my-modules</div>
+              <div class="component-tech">Manager Filter</div>
+              <div class="component-desc">我的模块 + 统计</div>
+            </div>
+            <div class="component-box theme-purple">
+              <div class="component-title">GET/POST/PUT /api/checklist-templates</div>
+              <div class="component-tech">Template CRUD</div>
+              <div class="component-desc">Checklist模板管理</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="module-group">
+          <div class="module-title">任务管理</div>
+          <div class="component-row">
+            <div class="component-box theme-purple">
+              <div class="component-title">GET /api/my-tasks/checklist</div>
+              <div class="component-tech">Executor Filter</div>
+              <div class="component-desc">我的执行任务</div>
+            </div>
+            <div class="component-box theme-purple">
+              <div class="component-title">GET /api/my-tasks/approvals</div>
+              <div class="component-tech">Approver Filter</div>
+              <div class="component-desc">我的审批任务</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="arrow-down">
+        ↓
+        <div class="arrow-label">Function Calls · Data Access</div>
+      </div>
+
+      <!-- Layer 3: Business Logic Layer -->
+      <div class="layer theme-red">
+        <div class="layer-label">业务逻辑层 (Business Logic Layer)</div>
+
+        <div class="component-row">
+          <div class="component-box theme-red">
+            <div class="component-title">🔐 权限系统</div>
+            <div class="component-tech">lib/permissions.ts</div>
+            <div class="component-desc">isModuleManager · canEditModule · canManageTemplates</div>
+          </div>
+          <div class="component-box theme-red">
+            <div class="component-title">👤 认证系统</div>
+            <div class="component-tech">lib/auth.ts</div>
+            <div class="component-desc">getCurrentUser · getAppSession · Iron-session</div>
+          </div>
+          <div class="component-box theme-red">
+            <div class="component-title">🗄️ 数据库访问</div>
+            <div class="component-tech">lib/db.ts + Prisma</div>
+            <div class="component-desc">Singleton Prisma Client</div>
+          </div>
+          <div class="component-box theme-red">
+            <div class="component-title">🛠️ 工具函数</div>
+            <div class="component-tech">lib/utils.ts</div>
+            <div class="component-desc">classNames · formatDate · statusConfig</div>
+          </div>
+        </div>
+
+        <div class="component-row">
+          <div class="sub-box">🎨 priorityConfig · evidenceTypeLabel</div>
+          <div class="sub-box">🔄 状态机管理</div>
+          <div class="sub-box">📊 统计计算</div>
+        </div>
+      </div>
+
+      <div class="arrow-down">
+        ↓
+        <div class="arrow-label">SQL Queries · ORM Mappings</div>
+      </div>
+
+      <!-- Layer 4: Database Layer -->
+      <div class="layer theme-orange">
+        <div class="layer-label">数据持久层 (Database Layer)</div>
+
+        <div class="component-row">
+          <div class="component-box theme-orange">
+            <div class="component-title">SQLite Database</div>
+            <div class="component-tech">prisma/dev.db</div>
+            <div class="component-desc">开发环境数据存储</div>
+          </div>
+          <div class="component-box theme-orange">
+            <div class="component-title">Prisma ORM</div>
+            <div class="component-tech">@prisma/client</div>
+            <div class="component-desc">类型安全的数据库访问</div>
+          </div>
+        </div>
+
+        <div class="module-group">
+          <div class="module-title">核心数据模型</div>
+          <div class="component-row">
+            <div class="sub-box">👤 User (用户)</div>
+            <div class="sub-box">📦 Module (模块)</div>
+            <div class="sub-box">📋 ChangeProject (变更项目)</div>
+            <div class="sub-box">🔄 ChangeModule (变更模块)</div>
+            <div class="sub-box">✅ ChecklistItem (检查项)</div>
+            <div class="sub-box">📝 ChecklistTemplate (模板)</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Deployment Architecture -->
+      <div style="margin-top: 40px; padding: 20px; border: 2px dashed #999; background: #fafafa;">
+        <div style="text-align: center; font-weight: bold; margin-bottom: 15px;">部署架构 (Deployment)</div>
+        <div class="component-row">
+          <div class="sub-box" style="border: 2px solid #2e7d32;">Next.js Dev:3000</div>
+          <div class="sub-box" style="border: 2px solid #c62828;">SQLite:file</div>
+          <div="sub-box" style="border: 2px solid #7b1fa2;">API Routes</div>
+        </div>
+        <div style="text-align: center; margin-top: 10px; font-size: 11px; color: #666;">
+          MVP 模式 · 硬编码管理员用户 · 生产环境需启用真实认证
+        </div>
+      </div>
+
+    </div>
+
+    <!-- Legend -->
+    <div class="legend">
+      <div class="legend-title">📖 图例说明 (Legend)</div>
+      <div class="legend-items">
+        <div class="legend-item">
+          <div class="legend-box" style="border-color: #2e7d32; background: #e8f5e9;"></div>
+          <span>用户界面层 - 前端页面与组件</span>
+        </div>
+        <div class="legend-item">
+          <div class="legend-box" style="border-color: #7b1fa2; background: #f3e5f5;"></div>
+          <span>API路由层 - 后端接口</span>
+        </div>
+        <div class="legend-item">
+          <div class="legend-box" style="border-color: #c62828; background: #ffebee;"></div>
+          <span>业务逻辑层 - 权限与工具</span>
+        </div>
+        <div class="legend-item">
+          <div class="legend-box" style="border-color: #f57c00; background: #fff3e0;"></div>
+          <span>数据持久层 - 数据库存储</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Statistics -->
+    <div class="statistics">
+      <div class="stats-title">📊 项目统计</div>
+      <div class="stats-items">
+        <div class="stat-item">
+          <div class="stat-number" style="color: #2e7d32;">7</div>
+          <div class="stat-label">主要页面</div>
+        </div>
+        <div class="stat-item">
+          <div class="stat-number" style="color: #7b1fa2;">10</div>
+          <div class="stat-label">API 端点</div>
+        </div>
+        <div class="stat-item">
+          <div class="stat-number" style="color: #c62828;">6</div>
+          <div class="stat-label">核心数据模型</div>
+        </div>
+        <div class="stat-item">
+          <div class="stat-number" style="color: #f57c00;">4</div>
+          <div class="stat-label">用户角色</div>
+        </div>
+        <div class="stat-item">
+          <div class="stat-number" style="color: #666;">3</div>
+          <div class="stat-label">状态机模型</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Detailed Business Flows -->
+    <div style="margin-top: 40px;">
+      <h2 style="text-align: center; font-size: 20px; font-weight: bold; margin-bottom: 30px;">🔄 核心业务流程详解</h2>
+
+      <!-- Flow 1: Change Creation -->
+      <div class="data-flow">
+        <div class="flow-title">1️⃣ 变更创建流程 (Change Creation)</div>
+        <div style="background: #fff; padding: 15px; border-radius: 4px; margin-bottom: 15px;">
+          <div class="flow-steps">
+            <div class="flow-step" style="border-color: #2e7d32; background: #e8f5e9;">📝 用户填写变更表单</div>
+            <div style="text-align: center; font-size: 11px; color: #666; margin: 5px 0;">标题、描述、优先级、计划时间</div>
+            <div class="flow-arrow">↓</div>
+            <div class="flow-step" style="border-color: #2e7d32; background: #e8f5e9;">📦 选择涉及的模块</div>
+            <div style="text-align: center; font-size: 11px; color: #666; margin: 5px 0;">显示模块负责人和模板信息</div>
+            <div class="flow-arrow">↓</div>
+            <div class="flow-step" style="border-color: #7b1fa2; background: #f3e5f5;">🔌 POST /api/changes</div>
+            <div style="text-align: center; font-size: 11px; color: #666; margin: 5px 0;">提交到后端API</div>
+            <div class="flow-arrow">↓</div>
+            <div class="flow-step" style="border-color: #c62828; background: #ffebee;">🗄️ 创建 ChangeProject</div>
+            <div style="text-align: center; font-size: 11px; color: #666; margin: 5px 0;">状态: DRAFT → PENDING → EXECUTING</div>
+            <div class="flow-arrow">↓</div>
+            <div class="flow-step" style="border-color: #c62828; background: #ffebee;">📋 为每个模块创建 ChangeModule</div>
+            <div style="text-align: center; font-size: 11px; color: #666; margin: 5px 0;">审批人 = 模块负责人</div>
+            <div class="flow-arrow">↓</div>
+            <div class="flow-step" style="border-color: #f57c00; background: #fff3e0;">✅ 实例化 ChecklistItem</div>
+            <div style="text-align: center; font-size: 11px; color: #666; margin: 5px 0;">根据模板创建检查项</div>
+            <div class="flow-arrow">↓</div>
+            <div class="flow-step" style="border-color: #2e7d32; background: #e8f5e9;">📄 跳转到变更详情页</div>
+            <div style="text-align: center; font-size: 11px; color: #666; margin: 5px 0;">/changes/[id]</div>
+          </div>
+        </div>
+        <div style="background: #f9f9f9; padding: 10px; border-radius: 4px; font-size: 11px; color: #666;">
+          <strong>关键点：</strong>模块负责人自动成为该模块的审批人，Checklist模板自动实例化为具体检查项
+        </div>
+      </div>
+
+      <!-- Flow 2: Checklist Execution -->
+      <div class="data-flow">
+        <div class="flow-title">2️⃣ Checklist 执行流程 (Checklist Execution)</div>
+        <div style="background: #fff; padding: 15px; border-radius: 4px; margin-bottom: 15px;">
+          <div class="flow-steps">
+            <div class="flow-step" style="border-color: #2e7d32; background: #e8f5e9;">👀 执行人查看任务</div>
+            <div style="text-align: center; font-size: 11px; color: #666; margin: 5px 0;">/my-tasks 或变更详情页</div>
+            <div class="flow-arrow">↓</div>
+            <div class="flow-step" style="border-color: #2e7d32; background: #e8f5e9;">✅ 选择待执行的 ChecklistItem</div>
+            <div style="text-align: center; font-size: 11px; color: #666; margin: 5px 0;">状态: PENDING 或 REJECTED</div>
+            <div class="flow-arrow">↓</div>
+            <div class="flow-step" style="border-color: #2e7d32; background: #e8f5e9;">📝 填写执行证据</div>
+            <div style="text-align: center; font-size: 11px; color: #666; margin: 5px 0;">根据证据类型(文字/截图/日志/配置)</div>
+            <div class="flow-arrow">↓</div>
+            <div class="flow-step" style="border-color: #7b1fa2; background: #f3e5f5;">🔌 PATCH /api/changes/[id]</div>
+            <div style="text-align: center; font-size: 11px; color: #666; margin: 5px 0;">action='execute_item'</div>
+            <div class="flow-arrow">↓</div>
+            <div class="flow-step" style="border-color: #c62828; background: #ffebee;">🔄 更新 ChecklistItem 状态</div>
+            <div style="text-align: center; font-size: 11px; color: #666; margin: 5px 0;">PENDING → DONE</div>
+            <div class="flow-arrow">↓</div>
+            <div class="flow-step" style="border-color: #c62828; background: #ffebee;">🔍 检查模块完成情况</div>
+            <div style="text-align: center; font-size: 11px; color: #666; margin: 5px 0;">所有Item完成? → ChangeModule: REVIEWING</div>
+            <div class="flow-arrow">↓</div>
+            <div class="flow-step" style="border-color: #c62828; background: #ffebee;">🔍 检查项目完成情况</div>
+            <div style="text-align: center; font-size: 11px; color: #666; margin: 5px 0;">所有Module REVIEWING? → ChangeProject: APPROVING</div>
+          </div>
+        </div>
+        <div style="background: #f9f9f9; padding: 10px; border-radius: 4px; font-size: 11px; color: #666;">
+          <strong>关键点：</strong>逐项完成后模块自动进入待审批状态，所有模块完成后项目进入待审批状态
+        </div>
+      </div>
+
+      <!-- Flow 3: Approval Process -->
+      <div class="data-flow">
+        <div class="flow-title">3️⃣ 审批流程 (Approval Process)</div>
+        <div style="background: #fff; padding: 15px; border-radius: 4px; margin-bottom: 15px;">
+          <div class="flow-steps">
+            <div class="flow-step" style="border-color: #2e7d32; background: #e8f5e9;">👁️ 模块负责人查看待审批任务</div>
+            <div style="text-align: center; font-size: 11px; color: #666; margin: 5px 0;">/approvals 或变更详情页审批标签</div>
+            <div class="flow-arrow">↓</div>
+            <div class="flow-step" style="border-color: #2e7d32; background: #e8f5e9;">🔍 检查所有ChecklistItem</div>
+            <div style="text-align: center; font-size: 11px; color: #666; margin: 5px 0;">查看执行证据和结果</div>
+            <div class="flow-arrow">↓</div>
+            <div class="flow-step" style="border-color: #2e7d32; background: #e8f5e9;">⚖️ 决策: 通过 or 驳回</div>
+            <div style="text-align: center; font-size: 11px; color: #666; margin: 5px 0;">分支决策点</div>
+          </div>
+
+          <div style="display: flex; gap: 30px; margin-top: 20px;">
+            <!-- Approve Branch -->
+            <div style="flex: 1; background: #e8f5e9; padding: 15px; border-radius: 4px;">
+              <div style="font-weight: bold; color: #2e7d32; margin-bottom: 10px; text-align: center;">✅ 通过分支</div>
+              <div class="flow-steps">
+                <div class="flow-step" style="border-color: #7b1fa2; background: #f3e5f5;">🔌 PATCH action='approve_module'</div>
+                <div class="flow-arrow">↓</div>
+                <div class="flow-step" style="border-color: #c62828; background: #ffebee;">🔄 ChangeModule: APPROVED</div>
+                <div class="flow-arrow">↓</div>
+                <div class="flow-step" style="border-color: #c62828; background: #ffebee;">🔍 所有模块已通过?</div>
+                <div class="flow-arrow">↓</div>
+                <div class="flow-step" style="border-color: #c62828; background: #ffebee;">✅ ChangeProject: COMPLETED</div>
+              </div>
+            </div>
+
+            <!-- Reject Branch -->
+            <div style="flex: 1; background: #ffebee; padding: 15px; border-radius: 4px;">
+              <div style="font-weight: bold; color: #c62828; margin-bottom: 10px; text-align: center;">❌ 驳回分支</div>
+              <div class="flow-steps">
+                <div class="flow-step" style="border-color: #7b1fa2; background: #f3e5f5;">🔌 PATCH action='reject_module'</div>
+                <div class="flow-arrow">↓</div>
+                <div class="flow-step" style="border-color: #c62828; background: #fff;">📝 选择驳回项</div>
+                <div class="flow-arrow">↓</div>
+                <div class="flow-step" style="border-color: #c62828; background: #fff;">💬 填写驳回原因</div>
+                <div class="flow-arrow">↓</div>
+                <div class="flow-step" style="border-color: #c62828; background: #ffebee;">🔄 ChecklistItem: REJECTED</div>
+                <div class="flow-arrow">↓</div>
+                <div class="flow-step" style="border-color: #c62828; background: #ffebee;">⬅️ ChangeModule: EXECUTING</div>
+                <div class="flow-arrow">↓</div>
+                <div class="flow-step" style="border-color: #c62828; background: #ffebee;">⬅️ ChangeProject: EXECUTING</div>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div style="background: #f9f9f9; padding: 10px; border-radius: 4px; font-size: 11px; color: #666;">
+          <strong>关键点：</strong>模块负责人审批自己的模块，驳回后需要执行人重新处理，支持选择性驳回部分检查项
+        </div>
+      </div>
+    </div>
+
+    <!-- Status Machines -->
+    <div style="margin-top: 40px;">
+      <h2 style="text-align: center; font-size: 20px; font-weight: bold; margin-bottom: 30px;">📊 状态机模型 (State Machines)</h2>
+
+      <!-- ChangeProject Status -->
+      <div class="status-flow">
+        <div class="status-title">ChangeProject 状态流转</div>
+        <div class="status-diagram">
+          <div class="status-box" style="border-color: #999; color: #999; background: #f5f5f5;">DRAFT</div>
+          <div style="font-size: 11px; color: #666;">草稿</div>
+          <div class="flow-arrow">→</div>
+          <div class="status-box" style="border-color: #2e7d32; color: #2e7d32; background: #e8f5e9;">PENDING</div>
+          <div style="font-size: 11px; color: #666;">待执行</div>
+          <div class="flow-arrow">→</div>
+          <div class="status-box" style="border-color: #7b1fa2; color: #7b1fa2; background: #f3e5f5;">EXECUTING</div>
+          <div style="font-size: 11px; color: #666;">执行中</div>
+          <div class="flow-arrow">→</div>
+          <div class="status-box" style="border-color: #f57c00; color: #f57c00; background: #fff3e0;">APPROVING</div>
+          <div style="font-size: 11px; color: #666;">待审批</div>
+          <div class="flow-arrow">→</div>
+          <div class="status-box" style="border-color: #2e7d32; color: #2e7d32; background: #e8f5e9;">COMPLETED</div>
+          <div style="font-size: 11px; color: #666;">已完成</div>
+        </div>
+        <div style="text-align: center; margin-top: 10px; font-size: 11px; color: #c62828;">
+          任何状态 ──取消──> CANCELLED
+        </div>
+      </div>
+
+      <!-- ChangeModule Status -->
+      <div class="status-flow">
+        <div class="status-title">ChangeModule 状态流转</div>
+        <div class="status-diagram">
+          <div class="status-box" style="border-color: #999; color: #999; background: #f5f5f5;">PENDING</div>
+          <div style="font-size: 11px; color: #666;">待执行</div>
+          <div class="flow-arrow">→</div>
+          <div class="status-box" style="border-color: #7b1fa2; color: #7b1fa2; background: #f3e5f5;">EXECUTING</div>
+          <div style="font-size: 11px; color: #666;">执行中</div>
+          <div class="flow-arrow">→</div>
+          <div class="status-box" style="border-color: #f57c00; color: #f57c00; background: #fff3e0;">REVIEWING</div>
+          <div style="font-size: 11px; color: #666;">待审批</div>
+        </div>
+        <div style="display: flex; justify-content: center; align-items: center; gap: 15px; margin-top: 15px; font-size: 11px;">
+          <div class="status-box" style="border-color: #2e7d32; color: #2e7d32; background: #e8f5e9;">通过 → APPROVED</div>
+          <div class="status-box" style="border-color: #c62828; color: #c62828; background: #ffebee;">驳回 → REJECTED</div>
+          <span style="color: #666;">Rejected 需重做时返回 EXECUTING</span>
+        </div>
+      </div>
+
+      <!-- ChecklistItem Status -->
+      <div class="status-flow">
+        <div class="status-title">ChecklistItem 状态流转</div>
+        <div class="status-diagram">
+          <div class="status-box" style="border-color: #999; color: #999; background: #f5f5f5;">PENDING</div>
+          <div style="font-size: 11px; color: #666;">待执行</div>
+          <div class="flow-arrow">→</div>
+          <div class="status-box" style="border-color: #7b1fa2; color: #7b1fa2; background: #f3e5f5;">IN_PROGRESS</div>
+          <div style="font-size: 11px; color: #666;">执行中</div>
+          <div class="flow-arrow">→</div>
+          <div class="status-box" style="border-color: #2e7d32; color: #2e7d32; background: #e8f5e9;">DONE</div>
+          <div style="font-size: 11px; color: #666;">已完成</div>
+        </div>
+        <div style="text-align: center; margin-top: 10px; font-size: 11px; color: #c62828;">
+          驳回 → REJECTED → 需重做时返回 IN_PROGRESS
+        </div>
+      </div>
+    </div>
+
+    <!-- Data Flow Diagram -->
+    <div style="margin-top: 40px;">
+      <h2 style="text-align: center; font-size: 20px; font-weight: bold; margin-bottom: 30px;">🔗 数据流向 (Data Flow)</h2>
+
+      <div style="background: #fff; padding: 20px; border-radius: 4px; border: 1px solid #ddd;">
+        <div style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 10px; font-size: 12px;">
+          <div style="padding: 10px 15px; border: 2px solid #2e7d32; background: #e8f5e9; text-align: center;">
+            <div style="font-weight: bold;">📱 用户界面</div>
+            <div style="color: #666;">React Components</div>
+          </div>
+          <div style="font-size: 20px;">→</div>
+          <div style="padding: 10px 15px; border: 2px solid #7b1fa2; background: #f3e5f5; text-align: center;">
+            <div style="font-weight: bold;">🛣️ API 路由</div>
+            <div style="color: #666;">Next.js API</div>
+          </div>
+          <div style="font-size: 20px;">→</div>
+          <div style="padding: 10px 15px; border: 2px solid #c62828; background: #ffebee; text-align: center;">
+            <div style="font-weight: bold;">🔐 权限检查</div>
+            <div style="color: #666;">permissions.ts</div>
+          </div>
+          <div style="font-size: 20px;">→</div>
+          <div style="padding: 10px 15px; border: 2px solid #c62828; background: #ffebee; text-align: center;">
+            <div style="font-weight: bold;">🗄️ 数据库操作</div>
+            <div style="color: #666;">Prisma ORM</div>
+          </div>
+          <div style="font-size: 20px;">→</div>
+          <div style="padding: 10px 15px; border: 2px solid #f57c00; background: #fff3e0; text-align: center;">
+            <div style="font-weight: bold;">💾 SQLite</div>
+            <div style="color: #666;">持久化存储</div>
+          </div>
+        </div>
+        <div style="text-align: center; margin-top: 15px; font-size: 11px; color: #666;">
+          响应数据按相反路径返回 → UI 更新
+        </div>
+      </div>
+    </div>
+        <div class="flow-arrow">→</div>
+        <div class="status-box" style="border-color: #2e7d32; color: #2e7d32;">COMPLETED</div>
+      </div>
+    </div>
+
+    <!-- API Routes -->
+    <div class="api-section">
+      <div class="api-title">🛣️ 核心 API 路由</div>
+      <div class="api-grid">
+        <div class="api-route"><span class="api-method">POST</span> /api/auth</div>
+        <div class="api-route"><span class="api-method">GET</span> /api/me</div>
+        <div class="api-route"><span class="api-method">GET</span> /api/users</div>
+        <div class="api-route"><span class="api-method">GET/POST</span> /api/changes</div>
+        <div class="api-route"><span class="api-method">GET/PATCH</span> /api/changes/[id]</div>
+        <div class="api-route"><span class="api-method">GET/POST/PUT</span> /api/modules</div>
+        <div class="api-route"><span class="api-method">GET/POST/PUT</span> /api/checklist-templates</div>
+        <div class="api-route"><span class="api-method">GET</span> /api/my-tasks/checklist</div>
+        <div class="api-route"><span class="api-method">GET</span> /api/my-tasks/approvals</div>
+      </div>
+    </div>
+
+  </div>
+
+  <div style="text-align: center; margin-top: 30px; font-size: 12px; color: #999;">
+    Generated for ChangeManagement System · Built with Next.js + Prisma + SQLite
+  </div>
+
+</body>
+</html>

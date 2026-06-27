@@ -1,0 +1,150 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = "file:./dev.db"
+}
+
+model User {
+  id        String   @id @default(cuid())
+  name      String
+  email     String   @unique
+  password  String?
+  role      String   @default("executor") // admin, approver, executor
+  createdAt DateTime @default(now())
+
+  initiatedChanges  ChangeProject[] @relation("Initiator")
+  checklistItems    ChecklistItem[]  @relation("Executor")
+  moduleApprovals   ChangeModule[]   @relation("Approver")
+  templatesCreated  ChecklistTemplate[] @relation("TemplateCreator")
+  modulesManaged    Module[]         @relation("ModuleManager")
+}
+
+model Module {
+  id          String   @id @default(cuid())
+  name        String
+  description String?
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+
+  managerId      String?
+  manager        User?         @relation("ModuleManager", fields: [managerId], references: [id])
+  templates      ChecklistTemplate[]
+  changeModules  ChangeModule[]
+}
+
+model ChecklistTemplate {
+  id          String   @id @default(cuid())
+  moduleId    String
+  name        String
+  description String?
+  createdBy   String?
+  creator     User?    @relation("TemplateCreator", fields: [createdBy], references: [id])
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  module   Module           @relation(fields: [moduleId], references: [id])
+  items    ChecklistItemDef[]
+
+  @@map("checklist_templates")
+}
+
+model ChecklistItemDef {
+  id               String   @id @default(cuid())
+  templateId       String
+  title            String
+  description      String?
+  expectedResult   String?
+  evidenceType     String   @default("text") // text, screenshot, log, config
+  isRequired       Boolean  @default(true)
+  defaultExecutorId String?
+  sortOrder        Int      @default(0)
+
+  template ChecklistTemplate @relation(fields: [templateId], references: [id], onDelete: Cascade)
+
+  @@map("checklist_item_defs")
+}
+
+model ChangeProject {
+  id            String   @id @default(cuid())
+  title         String
+  description   String?
+  priority      String   @default("medium") // critical, high, medium, low
+  status        ChangeProjectStatus @default(DRAFT)
+  plannedStart  DateTime?
+  plannedEnd    DateTime?
+  createdById   String
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+  completedAt   DateTime?
+  cancelledAt   DateTime?
+
+  initiator  User            @relation("Initiator", fields: [createdById], references: [id])
+  modules    ChangeModule[]
+
+  @@map("change_projects")
+}
+
+enum ChangeProjectStatus {
+  DRAFT       // 草稿，刚创建未提交
+  PENDING     // 待执行，已提交等待执行
+  EXECUTING   // 执行中，有Checklist正在进行
+  APPROVING   // 待审批，所有Checklist完成
+  COMPLETED   // 已完成，所有模块审批通过
+  CANCELLED   // 已取消
+}
+
+model ChangeModule {
+  id             String   @id @default(cuid())
+  changeProjectId String
+  moduleId       String
+  status         ChangeModuleStatus @default(PENDING)
+  approverId     String?
+  approvedAt     DateTime?
+  rejectReason   String?
+
+  changeProject ChangeProject @relation(fields: [changeProjectId], references: [id], onDelete: Cascade)
+  module        Module        @relation(fields: [moduleId], references: [id])
+  approver      User?         @relation("Approver", fields: [approverId], references: [id])
+  items         ChecklistItem[]
+
+  @@map("change_modules")
+}
+
+enum ChangeModuleStatus {
+  PENDING     // 待执行
+  EXECUTING   // 执行中
+  REVIEWING   // 待审批（该模块Checklist全部完成）
+  APPROVED    // 已审批通过
+  REJECTED    // 已驳回
+}
+
+model ChecklistItem {
+  id              String   @id @default(cuid())
+  changeModuleId  String
+  title           String
+  description     String?
+  expectedResult  String?
+  evidenceType    String   @default("text")
+  isRequired      Boolean  @default(true)
+  status          ChecklistItemStatus @default(PENDING)
+  executorId      String?
+  executedAt      DateTime?
+  evidenceNotes   String?
+  rejectReason    String?
+  sortOrder       Int      @default(0)
+
+  changeModule ChangeModule @relation(fields: [changeModuleId], references: [id], onDelete: Cascade)
+  executor     User?         @relation("Executor", fields: [executorId], references: [id])
+
+  @@map("checklist_items")
+}
+
+enum ChecklistItemStatus {
+  PENDING      // 待执行
+  IN_PROGRESS  // 执行中
+  DONE         // 已完成
+  REJECTED     // 已驳回
+}

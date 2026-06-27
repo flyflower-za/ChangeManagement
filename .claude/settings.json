@@ -1,7 +1,43 @@
 {
   "permissions": {
     "allow": [
-      "WebSearch"
+      "WebSearch",
+      "Bash(npx create-next-app@latest . --typescript --tailwind --app --src-dir --import-alias \"@/*\" --no-git --turbopack)",
+      "Bash(npx create-next-app@latest change-management --typescript --tailwind --app --src-dir --import-alias \"@/*\" --no-git --turbopack)",
+      "Bash(npx prisma *)",
+      "Bash(node --eval ' *)",
+      "Bash(npm run *)",
+      "Bash(curl -s http://localhost:3000)",
+      "Bash(curl -s http://localhost:3000/api/changes)",
+      "Bash(curl -s -X POST http://localhost:3000/api/changes -H 'Content-Type: application/json' -d '{ *)",
+      "Bash(python3 -c \"import sys, json; d=json.load\\(sys.stdin\\); print\\(f\\\\\"✅ 变更创建成功!\\\\\\\\nID: {d['id']}\\\\\\\\n标题: {d['title']}\\\\\\\\n状态: {d['status']}\\\\\\\\n模块数: {len\\(d.get\\('modules', []\\)\\)}\\\\\"\\)\")",
+      "Bash(curl -s http://localhost:3000/api/changes/cmqvq57a0000z7890aj1sqkrn)",
+      "Bash(python3 -c \"import sys, json; d=json.load\\(sys.stdin\\); print\\(json.dumps\\(d, indent=2, ensure_ascii=False\\)\\)\")",
+      "Bash(curl -s -X PATCH http://localhost:3000/api/changes/cmqvq57a0000z7890aj1sqkrn -H 'Content-Type: application/json' -d '{ *)",
+      "Bash(python3 -c \"import sys, json; d=json.load\\(sys.stdin\\); print\\(f\\\\\"✅ 执行成功! 状态: {d['status']}\\\\\"\\)\")",
+      "Bash(python3 -c \"import sys, json; d=json.load\\(sys.stdin\\); print\\(f\\\\\"审批状态: {d.get\\('modules', [{}]\\)[0].get\\('status'\\)}\\\\\"\\)\")",
+      "Bash(python3 -c ' *)",
+      "Bash(read id *)",
+      "Bash(curl -s -X PATCH http://localhost:3000/api/changes/cmqvq57a0000z7890aj1sqkrn -H 'Content-Type: application/json' -d '{\"action\": \"execute_item\", \"itemId\": \"__TRACKED_VAR__\", \"evidenceNotes\": \"已完成验证\"}')",
+      "Bash(curl -s -X PATCH http://localhost:3000/api/changes/cmqvq57a0000z7890aj1sqkrn -H 'Content-Type: application/json' -d '{\"action\": \"approve_module\", \"changeModuleId\": \"cmqvq57a200117890kx8hnl2\"}')",
+      "Bash(curl -v -X PATCH http://localhost:3000/api/changes/cmqvq57a0000z7890aj1sqkrn -H 'Content-Type: application/json' -d '{\"action\": \"approve_module\", \"changeModuleId\": \"cmqvq57a200117890kx8hnl2\"}')",
+      "Bash(awk '{print $2}')",
+      "Bash(xargs kill -HUP)",
+      "Bash(npx tsx *)",
+      "Bash(PRISMA_USER_CONSENT_FOR_DANGEROUS_AI_ACTION=\"用户明确同意执行数据库重置\" npx prisma migrate reset --force --skip-seed)",
+      "Bash(PRISMA_USER_CONSENT_FOR_DANGEROUS_AI_ACTION=\"用户明确同意执行数据库重置\" npx prisma migrate reset --force)",
+      "Bash(mkdir -p /Users/zhouao/Documents/GitHub/ChangeManagement/change-management/src/app/api/modules/[id])",
+      "Bash(mkdir -p '/Users/zhouao/Documents/GitHub/ChangeManagement/change-management/src/app/api/modules/[id]')",
+      "Bash(mkdir -p '/Users/zhouao/Documents/GitHub/ChangeManagement/change-management/src/app/modules/[id]/edit')",
+      "Bash(pkill -f \"next dev\")",
+      "Bash(npx next *)",
+      "Bash(timeout 30 npx next build)",
+      "Bash(npx tsc *)"
+    ],
+    "additionalDirectories": [
+      "/Users/zhouao/Documents/GitHub/ChangeManagement/change-management/src/app/api/modules",
+      "/Users/zhouao/Documents/GitHub/ChangeManagement/change-management/src/app/modules/[id]",
+      "/Users/zhouao/.claude/projects/-Users-zhouao-Documents-GitHub-ChangeManagement"
     ]
   }
 }
