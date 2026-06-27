@@ -6,6 +6,7 @@ import { priorityConfig, statusConfig, classNames } from '@/lib/utils'
 
 type Change = {
   id: string
+  serial?: number
   title: string
   description?: string
   status: string
@@ -21,6 +22,7 @@ type Change = {
 export default function ChangesPage() {
   const [changes, setChanges] = useState<Change[]>([])
   const [filter, setFilter] = useState('all')
+  const [search, setSearch] = useState('')
   const [loading, setLoading] = useState(true)
   const [currentUser, setCurrentUser] = useState<any>(null)
   const [actionLoading, setActionLoading] = useState<string | null>(null)
@@ -35,6 +37,18 @@ export default function ChangesPage() {
       setLoading(false)
     })
   }, [filter])
+
+  // Client-side keyword search
+  const filteredChanges = changes.filter(c => {
+    if (!search.trim()) return true
+    const q = search.toLowerCase()
+    return (
+      (c.serial && String(c.serial).includes(q)) ||
+      c.title.toLowerCase().includes(q) ||
+      (c.description && c.description.toLowerCase().includes(q)) ||
+      c.initiator?.name.toLowerCase().includes(q)
+    )
+  })
 
   const handleDelete = async (e: React.MouseEvent, changeId: string) => {
     e.preventDefault()
@@ -87,7 +101,7 @@ export default function ChangesPage() {
   const tabs = [
     { key: 'all', label: '全部' },
     { key: 'executing', label: '执行中' },
-    { key: 'reviewing', label: '审批中' },
+    { key: 'APPROVING', label: '审批中' },
     { key: 'completed', label: '已完成' },
   ]
 
@@ -105,97 +119,114 @@ export default function ChangesPage() {
         </Link>
       </div>
 
-      <div className="flex gap-1 border-b">
-        {tabs.map(t => (
-          <button
-            key={t.key}
-            onClick={() => { setFilter(t.key); setLoading(true) }}
-            className={classNames(
-              'px-4 py-2 text-sm font-medium border-b-2 transition',
-              filter === t.key ? 'border-blue-600 text-blue-600' : 'border-transparent text-gray-500 hover:text-gray-700'
-            )}
-          >
-            {t.label}
-          </button>
-        ))}
+      {/* Search */}
+      <div className="relative">
+        <input
+          type="text"
+          value={search}
+          onChange={e => setSearch(e.target.value)}
+          className="w-full px-4 py-2.5 pl-10 rounded-lg border border-gray-300 focus:ring-2 focus:ring-blue-500 outline-none transition text-sm"
+          placeholder="搜索变更项目 - 编号、名称、描述、发起人..."
+        />
+        <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400">🔍</span>
+        {search && (
+          <button onClick={() => setSearch('')} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 text-sm">✕</button>
+        )}
+      </div>
+
+      <div className="flex items-center justify-between">
+        <div className="flex gap-1 border-b flex-1">
+          {tabs.map(t => (
+            <button
+              key={t.key}
+              onClick={() => { setFilter(t.key); setLoading(true) }}
+              className={classNames(
+                'px-4 py-2 text-sm font-medium border-b-2 transition',
+                filter === t.key ? 'border-blue-600 text-blue-600' : 'border-transparent text-gray-500 hover:text-gray-700'
+              )}
+            >
+              {t.label}
+            </button>
+          ))}
+        </div>
+        {search && (
+          <span className="text-xs text-gray-500 flex-shrink-0 ml-3">
+            找到 {filteredChanges.length} 条结果
+          </span>
+        )}
       </div>
 
       {loading ? (
         <div className="text-gray-400">加载中...</div>
-      ) : changes.length === 0 ? (
+      ) : filteredChanges.length === 0 ? (
         <div className="text-center py-16 text-gray-400">
           <p className="text-lg">暂无变更项目</p>
           <Link href="/changes/new" className="text-blue-600 hover:underline mt-2 inline-block">创建第一个变更</Link>
         </div>
       ) : (
         <div className="space-y-3">
-          {changes.map(c => {
+          {filteredChanges.map(c => {
             const p = priorityConfig(c.priority)
             const s = statusConfig(c.status)
             const pct = c.progress?.total ? Math.round((c.progress.done / c.progress.total) * 100) : 0
             const modifyAllowed = canModify(c)
             return (
-              <div key={c.id} className="bg-white rounded-xl border p-5 hover:shadow-md transition">
-                <div className="flex items-start justify-between gap-4">
+              <div key={c.id} className="bg-white rounded-lg border px-4 py-3 hover:shadow-sm transition group">
+                <div className="flex items-center gap-3">
                   {/* Left: Main Content */}
                   <Link href={`/changes/${c.id}`} className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2 mb-1.5">
-                      <span className={classNames('inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium border', p.color)}>
+                    <div className="flex items-center gap-3">
+                      {/* Priority + Status + Title + Desc in one row */}
+                      <span className={classNames('inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full text-xs font-medium border flex-shrink-0', p.color)}>
                         <span className={classNames('w-1.5 h-1.5 rounded-full', p.dot)} />{p.label}
                       </span>
-                      <span className={classNames('px-2 py-0.5 rounded-full text-xs font-medium', s.color)}>{s.label}</span>
+                      {c.serial && <span className="text-xs text-gray-400 font-mono flex-shrink-0">#{c.serial}</span>}
+                      <span className="font-medium text-gray-900 truncate">{c.title}</span>
+                      <span className={classNames('px-1.5 py-0.5 rounded-full text-xs flex-shrink-0', s.color)}>{s.label}</span>
+                      {c.description && <span className="text-xs text-gray-400 truncate hidden sm:inline">{c.description}</span>}
                     </div>
-                    <h3 className="font-medium text-gray-900">{c.title}</h3>
-                    <p className="text-sm text-gray-500 mt-1 line-clamp-2">{c.description}</p>
-                    <p className="text-xs text-gray-400 mt-2">发起人: {c.initiator?.name} · {new Date(c.createdAt).toLocaleString('zh-CN')}</p>
 
-                    {/* Progress Bar - Left Aligned */}
-                    <div className="mt-3 pt-3 border-t">
-                      <div className="flex items-center gap-3">
-                        <span className="text-xs text-gray-500 whitespace-nowrap">
-                          进度 {c.progress?.done || 0}/{c.progress?.total || 0}
-                        </span>
-                        <div className="flex-1 h-2 bg-gray-100 rounded-full overflow-hidden">
+                    {/* Second row: progress + modules + info */}
+                    <div className="flex items-center gap-3 mt-1.5">
+                      {/* Compact progress bar */}
+                      <div className="flex items-center gap-1.5 flex-shrink-0">
+                        <div className="w-16 h-1.5 bg-gray-100 rounded-full overflow-hidden">
                           <div className="h-full bg-blue-500 rounded-full transition-all" style={{ width: `${pct}%` }} />
                         </div>
-                        <span className="text-sm font-medium text-gray-600 whitespace-nowrap">{pct}%</span>
+                        <span className="text-xs text-gray-500">{pct}%</span>
                       </div>
-                    </div>
 
-                    {/* Module Tags */}
-                    <div className="flex flex-wrap gap-1.5 mt-2">
-                      {c.moduleProgress?.map((mp: any) => (
-                        <span key={mp.id} className={classNames(
-                          'text-xs px-2 py-0.5 rounded-full',
-                          mp.status === 'approved' ? 'text-green-600 bg-green-50' :
-                          mp.status === 'reviewing' ? 'text-purple-600 bg-purple-50' :
-                          mp.status === 'executing' ? 'text-amber-600 bg-amber-50' :
-                          'text-gray-400 bg-gray-50'
-                        )}>
-                          {mp.name} {mp.done}/{mp.total}
-                        </span>
-                      ))}
+                      {/* Module tags - compact */}
+                      <div className="flex gap-1 overflow-hidden">
+                        {c.moduleProgress?.map((mp: any) => (
+                          <span key={mp.id} className={classNames(
+                            'text-xs px-1.5 py-0 rounded-full flex-shrink-0',
+                            mp.status === 'approved' || mp.status === 'APPROVED' ? 'text-green-600' :
+                            (mp.status === 'REVIEWING' || mp.status === 'reviewing') ? 'text-purple-600' :
+                            (mp.status === 'EXECUTING' || mp.status === 'executing') ? 'text-amber-600' :
+                            'text-gray-400'
+                          )}>
+                            {mp.name} {mp.done}/{mp.total}
+                          </span>
+                        ))}
+                      </div>
+
+                      <span className="text-xs text-gray-400 flex-shrink-0 ml-auto">
+                        {c.initiator?.name} · {new Date(c.createdAt).toLocaleDateString('zh-CN')}
+                      </span>
                     </div>
                   </Link>
 
                   {/* Right: Action Buttons */}
                   {modifyAllowed && (
-                    <div className="flex flex-col gap-2 flex-shrink-0 pt-1">
-                      <button
-                        onClick={(e) => handleArchive(e, c.id)}
-                        disabled={actionLoading === c.id}
-                        className="px-3 py-1.5 text-xs bg-amber-50 text-amber-600 rounded-lg hover:bg-amber-100 transition whitespace-nowrap"
-                        title="归档"
-                      >
-                        {actionLoading === c.id ? '处理中...' : '归档'}
+                    <div className="flex items-center gap-1 flex-shrink-0 opacity-0 group-hover:opacity-100 transition-opacity">
+                      <button onClick={(e) => handleArchive(e, c.id)} disabled={actionLoading === c.id}
+                        className="px-2 py-1 text-xs bg-amber-50 text-amber-600 rounded hover:bg-amber-100 transition whitespace-nowrap">
+                        {actionLoading === c.id ? '...' : '归档'}
                       </button>
-                      <button
-                        onClick={(e) => handleDelete(e, c.id)}
-                        disabled={actionLoading === c.id}
-                        className="px-3 py-1.5 text-xs bg-red-50 text-red-600 rounded-lg hover:bg-red-100 transition whitespace-nowrap"
-                        title="删除"
-                      >
-                        {actionLoading === c.id ? '处理中...' : '删除'}
+                      <button onClick={(e) => handleDelete(e, c.id)} disabled={actionLoading === c.id}
+                        className="px-2 py-1 text-xs bg-red-50 text-red-600 rounded hover:bg-red-100 transition whitespace-nowrap">
+                        {actionLoading === c.id ? '...' : '删除'}
                       </button>
                     </div>
                   )}

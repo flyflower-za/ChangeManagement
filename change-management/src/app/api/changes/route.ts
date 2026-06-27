@@ -52,9 +52,14 @@ export async function POST(req: NextRequest) {
   const body = await req.json()
   const { title, description, priority, plannedStart, plannedEnd, moduleIds, productId } = body
 
+  // Auto-generate serial number
+  const lastChange = await prisma.changeProject.findFirst({ orderBy: { serial: 'desc' }, select: { serial: true } })
+  const nextSerial = (lastChange?.serial || 0) + 1
+
   // Create the change project
   const change = await prisma.changeProject.create({
     data: {
+      serial: nextSerial,
       title,
       description,
       priority: priority || 'medium',

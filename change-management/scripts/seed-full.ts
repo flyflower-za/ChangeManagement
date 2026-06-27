@@ -126,9 +126,13 @@ async function main() {
   for (const c of changes) console.log(`    [${c.status}] ${c.title}`)
 }
 
+let serialCounter = 0
+
 async function createProject(title:string, desc:string, priority:string, creatorId:string, moduleIds:string[], status:string, doneRatio:number, productId:string|null) {
+  serialCounter++
   const change = await prisma.changeProject.create({
     data: {
+      serial: serialCounter,
       title, description:desc, priority,
       status: status as any,
       productId: productId,

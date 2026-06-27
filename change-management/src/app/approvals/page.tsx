@@ -18,15 +18,16 @@ export default function ApprovalsPage() {
       fetch('/api/me').then(r => r.json()),
     ]).then(([d, user]) => {
       setCurrentUser(user)
-      // 只显示当前用户需要审批的变更（过滤审批人是自己的模块）
+      // 管理员看所有待审批，审批人只看自己的
       const myChanges = d
         .map((c: any) => ({
           ...c,
-          moduleProgress: c.moduleProgress?.filter((mp: any) =>
-            mp.approverId === user.id &&
-            (mp.status === 'REVIEWING' || mp.status === 'reviewing' ||
-             c.status === 'APPROVING' || c.status === 'EXECUTING')
-          ) || []
+          moduleProgress: c.moduleProgress?.filter((mp: any) => {
+            const isReviewing = mp.status === 'REVIEWING' || mp.status === 'reviewing' ||
+              c.status === 'APPROVING' || c.status === 'APPROVING'
+            if (user.role === 'admin') return isReviewing // 管理员看所有
+            return isReviewing && mp.approverId === user.id // 审批人只看自己的
+          }) || []
         }))
         .filter((c: any) => c.moduleProgress.length > 0)
       setChanges(myChanges)

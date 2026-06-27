@@ -137,6 +137,7 @@ model ChecklistItemDef {
 
 model ChangeProject {
   id           String              @id @default(cuid())
+  serial       Int                 @unique // 自增编号，从1开始
   title        String
   description  String?
   priority     String              @default("medium")
