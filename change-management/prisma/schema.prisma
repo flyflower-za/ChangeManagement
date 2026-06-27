@@ -16,6 +16,8 @@ model User {
   role             String              @default("executor")
   departmentId     String?
   department       Module?             @relation(fields: [departmentId], references: [id])
+  groupId          String?
+  group            PermissionGroup?    @relation(fields: [groupId], references: [id])
   createdAt        DateTime            @default(now())
   modulesManaged   Module[]            @relation("ModuleManager")
   moduleApprovals  ChangeModule[]      @relation("Approver")
@@ -229,6 +231,30 @@ model EmailTemplate {
   updatedAt DateTime @updatedAt
 
   @@map("email_templates")
+}
+
+model PermissionGroup {
+  id          String @id @default(cuid())
+  name        String @unique // 组名
+  description String?
+  role        String // 组对应的系统角色: admin, approver, executor
+  createdAt   DateTime @default(now())
+  members     User[] // 组成员
+
+  @@map("permission_groups")
+}
+
+model LdapConfig {
+  id        String  @id @default(cuid())
+  url       String  // LDAP服务器地址
+  baseDN    String  // 搜索基础DN
+  bindDN    String? // 绑定DN
+  bindPass  String? // 绑定密码
+  filter    String  @default("(sAMAccountName={{username}})") // 用户搜索过滤器
+  enabled   Boolean @default(false)
+  updatedAt DateTime @updatedAt
+
+  @@map("ldap_config")
 }
 
 enum ChangeProjectStatus {
