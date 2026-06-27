@@ -50,6 +50,7 @@ export default function ChangeDetailPage() {
   const router = useRouter()
   const [change, setChange] = useState<ChangeDetail | null>(null)
   const [users, setUsers] = useState<any[]>([])
+  const [currentUser, setCurrentUser] = useState<any>(null)
   const [loading, setLoading] = useState(true)
   const [selectedModuleId, setSelectedModuleId] = useState<string | null>(null)
   const [activeTab, setActiveTab] = useState<'overview' | 'execute' | 'approve' | 'history'>('overview')
@@ -65,6 +66,8 @@ export default function ChangeDetailPage() {
   const [rejectItemIds, setRejectItemIds] = useState<string[]>([])
   const [executing, setExecuting] = useState<string | null>(null) // itemId
   const [evidenceNotes, setEvidenceNotes] = useState('')
+  const [uploadFiles, setUploadFiles] = useState<File[]>([])
+  const [uploading, setUploading] = useState(false)
 
   const loadChange = () => {
     fetch(`/api/changes/${id}`).then(r => r.json()).then(d => {
@@ -79,10 +82,19 @@ export default function ChangeDetailPage() {
   useEffect(() => {
     loadChange()
     fetch('/api/users').then(r => r.json()).then(setUsers)
+    fetch('/api/me').then(r => r.json()).then(setCurrentUser)
   }, [id])
 
   const handleExecute = async (itemId: string) => {
     setActionLoading(true)
+    // Upload files first
+    for (const file of uploadFiles) {
+      const formData = new FormData()
+      formData.append('file', file)
+      formData.append('itemId', itemId)
+      await fetch('/api/upload', { method: 'POST', body: formData })
+    }
+    // Save execution evidence
     await fetch(`/api/changes/${id}`, {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
@@ -91,6 +103,7 @@ export default function ChangeDetailPage() {
     setActionLoading(false)
     setExecuting(null)
     setEvidenceNotes('')
+    setUploadFiles([])
     loadChange()
   }
 
@@ -220,17 +233,22 @@ export default function ChangeDetailPage() {
           </div>
           {/* Action Buttons */}
           <div className="flex items-center gap-2">
-            <button
-              onClick={() => setEditMode(!editMode)}
-              className={classNames(
-                'px-4 py-2 rounded-lg text-sm font-medium transition',
-                editMode
-                  ? 'bg-blue-600 text-white hover:bg-blue-500'
-                  : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-              )}
-            >
-              {editMode ? '✓ 完成编辑' : '✏️ 编辑'}
-            </button>
+            {(change.status !== 'COMPLETED' || currentUser?.role === 'admin') && (
+              <button
+                onClick={() => setEditMode(!editMode)}
+                className={classNames(
+                  'px-4 py-2 rounded-lg text-sm font-medium transition',
+                  editMode
+                    ? 'bg-blue-600 text-white hover:bg-blue-500'
+                    : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                )}
+              >
+                {editMode ? '✓ 完成编辑' : '✏️ 编辑'}
+              </button>
+            )}
+            {change.status === 'COMPLETED' && currentUser?.role !== 'admin' && (
+              <span className="px-3 py-2 text-xs text-gray-400 bg-gray-50 rounded-lg">变更已完成，只读</span>
+            )}
             <button
               onClick={handleArchive}
               disabled={deleteLoading}
@@ -522,9 +540,21 @@ export default function ChangeDetailPage() {
                               {item.expectedResult && <p className="text-xs text-gray-400 mt-0.5">预期: {item.expectedResult}</p>}
 
                               {/* 证据 */}
-                              {item.evidenceNotes && (
+                              {(item.evidenceNotes || (item.attachments?.length > 0)) && (
                                 <div className="mt-2 bg-green-50 rounded-lg p-3 text-sm">
-                                  <p className="text-gray-600">📝 {item.evidenceNotes}</p>
+                                  {item.evidenceNotes && <p className="text-gray-600">📝 {item.evidenceNotes}</p>}
+                                  {/* Attachments */}
+                                  {item.attachments?.length > 0 && (
+                                    <div className="mt-1.5 flex flex-wrap gap-2">
+                                      {item.attachments.map((att: any) => (
+                                        <a key={att.id} href={att.filePath} target="_blank" rel="noopener noreferrer"
+                                          className="inline-flex items-center gap-1.5 px-2.5 py-1.5 bg-white rounded-lg border text-xs hover:bg-gray-50 transition">
+                                          {att.fileType === 'image' ? '🖼️' : att.fileType === 'pdf' ? '📄' : att.fileType === 'word' ? '📝' : att.fileType === 'excel' ? '📊' : '📎'}
+                                          <span className="text-blue-600 hover:underline truncate max-w-[200px]">{att.fileName}</span>
+                                        </a>
+                                      ))}
+                                    </div>
+                                  )}
                                   <p className="text-xs text-gray-400 mt-1">
                                     执行人: {item.executor?.name} · {formatDate(item.executedAt!)}
                                   </p>
@@ -601,64 +631,136 @@ export default function ChangeDetailPage() {
                 {/* 审批 Tab */}
                 {activeTab === 'approve' && (
                   <div className="space-y-4">
+                    {/* Summary Bar */}
+                    {(() => {
+                      const doneCount = selectedModule.items.filter((i: any) => i.status === 'DONE' || i.status === 'done').length
+                      const naCount = selectedModule.items.filter((i: any) => i.status === 'NOT_APPLICABLE' || i.status === 'not_applicable').length
+                      const pendingCount = selectedModule.items.length - doneCount - naCount
+                      return (
+                        <div className="grid grid-cols-4 gap-2 text-center text-sm">
+                          <div className="bg-gray-50 rounded-lg p-3">
+                            <div className="text-lg font-bold">{selectedModule.items.length}</div>
+                            <div className="text-xs text-gray-500">总检查项</div>
+                          </div>
+                          <div className="bg-green-50 rounded-lg p-3">
+                            <div className="text-lg font-bold text-green-600">{doneCount}</div>
+                            <div className="text-xs text-green-500">已完成</div>
+                          </div>
+                          <div className="bg-gray-100 rounded-lg p-3">
+                            <div className="text-lg font-bold text-gray-500">{naCount}</div>
+                            <div className="text-xs text-gray-400">不涉及</div>
+                          </div>
+                          <div className={classNames('rounded-lg p-3', pendingCount > 0 ? 'bg-red-50' : 'bg-gray-50')}>
+                            <div className={classNames('text-lg font-bold', pendingCount > 0 ? 'text-red-600' : 'text-gray-400')}>{pendingCount}</div>
+                            <div className={classNames('text-xs', pendingCount > 0 ? 'text-red-500' : 'text-gray-400')}>待完成</div>
+                          </div>
+                        </div>
+                      )
+                    })()}
+
+                    {/* Checklist Items with Evidence */}
                     <div>
-                      <h3 className="text-sm font-semibold text-gray-700 mb-3">Checklist 执行记录</h3>
+                      <h3 className="text-sm font-semibold text-gray-700 mb-3">执行详情</h3>
                       <div className="space-y-2">
                         {selectedModule.items.map((item, idx) => {
                           const isDone = item.status === 'DONE' || item.status === 'done'
                           const isNA = item.status === 'NOT_APPLICABLE' || item.status === 'not_applicable'
+                          const isRejected = item.status === 'REJECTED' || item.status === 'rejected'
                           const isCompleted = isDone || isNA
                           return (
                             <div key={item.id} className={classNames(
-                              'flex items-center gap-3 p-3 rounded-lg',
-                              isDone ? 'bg-green-50' : isNA ? 'bg-gray-100' : 'bg-gray-50'
+                              'rounded-lg border',
+                              isDone ? 'border-green-200 bg-green-50/30' :
+                              isNA ? 'border-gray-200 bg-gray-50' :
+                              isRejected ? 'border-red-200 bg-red-50' :
+                              'border-amber-200 bg-amber-50/30'
                             )}>
-                              <span className={classNames(
-                                'w-5 h-5 rounded-full flex items-center justify-center text-xs flex-shrink-0',
-                                isDone ? 'bg-green-500 text-white' : isNA ? 'bg-gray-400 text-white' : 'bg-gray-300 text-gray-500'
-                              )}>
-                                {isDone ? '✓' : isNA ? 'N' : idx + 1}
-                              </span>
-                              <span className={classNames('text-sm', isCompleted ? 'text-gray-600' : 'text-gray-400')}>
-                                {item.title}
-                              </span>
-                              {isNA && <span className="text-xs text-gray-400">不涉及</span>}
-                              {item.evidenceNotes && (
-                                <span className="text-xs text-gray-400 ml-auto">
-                                  有证据
+                              <div className="flex items-start gap-3 p-3">
+                                <span className={classNames(
+                                  'w-6 h-6 rounded-full flex items-center justify-center text-xs flex-shrink-0 mt-0.5',
+                                  isDone ? 'bg-green-500 text-white' :
+                                  isNA ? 'bg-gray-400 text-white' :
+                                  isRejected ? 'bg-red-500 text-white' :
+                                  'bg-amber-500 text-white'
+                                )}>
+                                  {isDone ? '✓' : isNA ? 'N' : isRejected ? '!' : idx + 1}
                                 </span>
-                              )}
+                                <div className="flex-1 min-w-0">
+                                  <div className="flex items-center gap-2 flex-wrap">
+                                    <span className={classNames('text-sm font-medium', isCompleted && 'text-gray-600', (!isCompleted && !isRejected) && 'text-amber-700')}>
+                                      {item.title}
+                                    </span>
+                                    {isNA && <span className="text-xs text-gray-400">不涉及</span>}
+                                    {isRejected && <span className="text-xs text-red-500">需重做</span>}
+                                    {!isCompleted && !isRejected && <span className="text-xs text-amber-500">待执行</span>}
+                                  </div>
+                                  {/* Evidence */}
+                                  {(item.evidenceNotes || (item.attachments?.length > 0)) && (
+                                    <div className="mt-1.5 bg-white rounded p-2.5 border border-gray-100">
+                                      {item.evidenceNotes && <p className="text-sm text-gray-600 whitespace-pre-wrap">{item.evidenceNotes}</p>}
+                                      {item.attachments?.length > 0 && (
+                                        <div className={classNames('flex flex-wrap gap-2', item.evidenceNotes && 'mt-2')}>
+                                          {item.attachments.map((att: any) => (
+                                            <a key={att.id} href={att.filePath} target="_blank" rel="noopener noreferrer"
+                                              className="inline-flex items-center gap-1.5 px-2.5 py-1.5 bg-gray-50 rounded-lg border text-xs hover:bg-gray-100 transition">
+                                              {att.fileType === 'image' ? '🖼️' : att.fileType === 'pdf' ? '📄' : att.fileType === 'word' ? '📝' : att.fileType === 'excel' ? '📊' : '📎'}
+                                              <span className="text-blue-600 hover:underline truncate max-w-[200px]">{att.fileName}</span>
+                                              <span className="text-gray-400">({(att.fileSize / 1024).toFixed(0)}KB)</span>
+                                            </a>
+                                          ))}
+                                        </div>
+                                      )}
+                                    </div>
+                                  )}
+                                  {/* Executor & Time */}
+                                  {(item.executor || item.executedAt) && (
+                                    <div className="flex items-center gap-3 mt-1.5 text-xs text-gray-400">
+                                      {item.executor && <span>👤 {item.executor.name}</span>}
+                                      {item.executedAt && <span>🕐 {formatDate(item.executedAt)}</span>}
+                                    </div>
+                                  )}
+                                  {/* Reject reason */}
+                                  {item.rejectReason && (
+                                    <div className="mt-1.5 bg-red-50 rounded p-2 text-sm text-red-600">
+                                      ❌ 驳回理由：{item.rejectReason}
+                                    </div>
+                                  )}
+                                </div>
+                              </div>
                             </div>
                           )
                         })}
                       </div>
                     </div>
 
+                    {/* Approval Actions */}
                     <div className="pt-4 border-t">
-                      <h3 className="text-sm font-semibold text-gray-700 mb-2">审批意见</h3>
-                      <textarea
-                        className="w-full px-4 py-2.5 rounded-lg border border-gray-300 focus:ring-2 focus:ring-blue-500 outline-none transition text-sm"
-                        rows={3}
-                        placeholder="填写审批意见（可选）..."
-                      />
                       {editMode ? (
-                        <div className="flex gap-3 mt-4">
-                          <button
-                            onClick={() => handleApprove(selectedModule.id!)}
-                            disabled={actionLoading}
-                            className="flex-1 py-2.5 bg-green-600 text-white rounded-lg font-medium hover:bg-green-500 transition disabled:opacity-50"
-                          >
-                            ✅ 审批通过
-                          </button>
-                          <button
-                            onClick={() => { setShowReject(selectedModule.id!); setRejectItemIds([]); setRejectReason('') }}
-                            className="px-6 py-2.5 border border-red-200 text-red-600 rounded-lg font-medium hover:bg-red-50 transition"
-                          >
-                            ❌ 驳回
-                          </button>
-                        </div>
+                        <>
+                          <h3 className="text-sm font-semibold text-gray-700 mb-2">审批意见</h3>
+                          <textarea
+                            className="w-full px-4 py-2.5 rounded-lg border border-gray-300 focus:ring-2 focus:ring-blue-500 outline-none transition text-sm"
+                            rows={2}
+                            placeholder="填写审批意见（可选）..."
+                          />
+                          <div className="flex gap-3 mt-4">
+                            <button
+                              onClick={() => handleApprove(selectedModule.id!)}
+                              disabled={actionLoading}
+                              className="flex-1 py-2.5 bg-green-600 text-white rounded-lg font-medium hover:bg-green-500 transition disabled:opacity-50"
+                            >
+                              ✅ 审批通过
+                            </button>
+                            <button
+                              onClick={() => { setShowReject(selectedModule.id!); setRejectItemIds([]); setRejectReason('') }}
+                              className="px-6 py-2.5 border border-red-200 text-red-600 rounded-lg font-medium hover:bg-red-50 transition"
+                            >
+                              ❌ 驳回
+                            </button>
+                          </div>
+                        </>
                       ) : (
-                        <div className="mt-4 p-3 bg-gray-50 rounded-lg text-center text-sm text-gray-500">
+                        <div className="p-3 bg-gray-50 rounded-lg text-center text-sm text-gray-500">
                           点击右上角"编辑"按钮进行审批操作
                         </div>
                       )}
@@ -673,17 +775,48 @@ export default function ChangeDetailPage() {
 
       {/* 执行模态框 */}
       {executing && (
-        <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50" onClick={() => setExecuting(null)}>
+        <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50" onClick={() => { setExecuting(null); setUploadFiles([]) }}>
           <div className="bg-white rounded-2xl shadow-xl w-full max-w-lg p-6" onClick={e => e.stopPropagation()}>
             <h3 className="text-lg font-bold mb-4">执行检查项</h3>
+
             <label className="block text-sm font-medium text-gray-700 mb-1.5">执行说明 / 证据备注</label>
             <textarea
               value={evidenceNotes}
               onChange={e => setEvidenceNotes(e.target.value)}
-              rows={4}
+              rows={3}
               className="w-full px-4 py-2.5 rounded-lg border border-gray-300 focus:ring-2 focus:ring-blue-500 outline-none transition"
               placeholder="填写执行过程和结果说明..."
             />
+
+            {/* File Upload */}
+            <div className="mt-3">
+              <label className="block text-sm font-medium text-gray-700 mb-1.5">上传证据文件</label>
+              <input
+                type="file"
+                multiple
+                accept="image/*,.pdf,.doc,.docx,.xls,.xlsx"
+                onChange={e => {
+                  if (e.target.files) {
+                    setUploadFiles(prev => [...prev, ...Array.from(e.target.files!)])
+                  }
+                }}
+                className="w-full text-sm text-gray-500 file:mr-3 file:py-1.5 file:px-3 file:rounded-lg file:border-0 file:text-sm file:font-medium file:bg-blue-50 file:text-blue-600 hover:file:bg-blue-100"
+              />
+              {/* File preview list */}
+              {uploadFiles.length > 0 && (
+                <div className="mt-2 space-y-1">
+                  {uploadFiles.map((f, i) => (
+                    <div key={i} className="flex items-center gap-2 text-xs text-gray-500 bg-gray-50 rounded px-3 py-1.5">
+                      <span>📎 {f.name}</span>
+                      <span className="text-gray-300">({(f.size / 1024).toFixed(1)}KB)</span>
+                      <button onClick={() => setUploadFiles(uploadFiles.filter((_, x) => x !== i))} className="ml-auto text-gray-400 hover:text-red-500">✕</button>
+                    </div>
+                  ))}
+                </div>
+              )}
+              <p className="text-xs text-gray-400 mt-1">支持图片、PDF、Word、Excel 文件</p>
+            </div>
+
             <div className="flex gap-3 mt-4">
               <button
                 onClick={() => handleExecute(executing!)}
@@ -692,7 +825,7 @@ export default function ChangeDetailPage() {
               >
                 {actionLoading ? '提交中...' : '确认完成'}
               </button>
-              <button onClick={() => setExecuting(null)} className="px-6 py-2.5 border rounded-lg font-medium hover:bg-gray-50">
+              <button onClick={() => { setExecuting(null); setUploadFiles([]) }} className="px-6 py-2.5 border rounded-lg font-medium hover:bg-gray-50">
                 取消
               </button>
             </div>

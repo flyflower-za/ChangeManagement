@@ -13,7 +13,7 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ id:
         include: {
           module: true,
           approver: true,
-          items: { orderBy: { sortOrder: 'asc' } },
+          items: { orderBy: { sortOrder: 'asc' }, include: { executor: true, attachments: true } },
         },
       },
     },
@@ -31,6 +31,12 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
   const { id } = await params
   const body = await req.json()
   const { action } = body
+
+  // Check if change is completed - only admin can modify completed changes
+  const existingChange = await prisma.changeProject.findUnique({ where: { id }, select: { status: true } })
+  if (existingChange?.status === 'COMPLETED' && user.role !== 'admin') {
+    return NextResponse.json({ error: '变更已完成，只有管理员可以修改' }, { status: 403 })
+  }
 
   if (action === 'execute_item') {
     const item = await prisma.checklistItem.update({
