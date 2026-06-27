@@ -628,143 +628,166 @@ export default function ChangeDetailPage() {
                   </div>
                 )}
 
-                {/* 审批 Tab */}
+                {/* 审批 Tab - Diff View */}
                 {activeTab === 'approve' && (
                   <div className="space-y-4">
                     {/* Summary Bar */}
                     {(() => {
-                      const doneCount = selectedModule.items.filter((i: any) => i.status === 'DONE' || i.status === 'done').length
-                      const naCount = selectedModule.items.filter((i: any) => i.status === 'NOT_APPLICABLE' || i.status === 'not_applicable').length
-                      const pendingCount = selectedModule.items.length - doneCount - naCount
+                      const items = selectedModule.items
+                      const doneCount = items.filter((i: any) => i.status === 'DONE' || i.status === 'done').length
+                      const naCount = items.filter((i: any) => i.status === 'NOT_APPLICABLE' || i.status === 'not_applicable').length
+                      const rejectedCount = items.filter((i: any) => i.status === 'REJECTED' || i.status === 'rejected').length
+                      const pendingCount = items.length - doneCount - naCount - rejectedCount
                       return (
-                        <div className="grid grid-cols-4 gap-2 text-center text-sm">
-                          <div className="bg-gray-50 rounded-lg p-3">
-                            <div className="text-lg font-bold">{selectedModule.items.length}</div>
-                            <div className="text-xs text-gray-500">总检查项</div>
+                        <div className="flex items-center gap-3 flex-wrap">
+                          <div className="flex items-center gap-2 px-3 py-2 bg-gray-50 rounded-lg">
+                            <span className="text-sm font-bold">{items.length}</span>
+                            <span className="text-xs text-gray-500">总检查项</span>
                           </div>
-                          <div className="bg-green-50 rounded-lg p-3">
-                            <div className="text-lg font-bold text-green-600">{doneCount}</div>
-                            <div className="text-xs text-green-500">已完成</div>
+                          <div className="flex items-center gap-2 px-3 py-2 bg-green-50 rounded-lg">
+                            <span className="text-xs text-green-600">✓</span>
+                            <span className="text-sm font-bold text-green-600">{doneCount}</span>
+                            <span className="text-xs text-green-500">已通过</span>
                           </div>
-                          <div className="bg-gray-100 rounded-lg p-3">
-                            <div className="text-lg font-bold text-gray-500">{naCount}</div>
-                            <div className="text-xs text-gray-400">不涉及</div>
+                          <div className="flex items-center gap-2 px-3 py-2 bg-gray-100 rounded-lg">
+                            <span className="text-xs text-gray-400">N</span>
+                            <span className="text-sm font-bold text-gray-500">{naCount}</span>
+                            <span className="text-xs text-gray-400">不涉及</span>
                           </div>
-                          <div className={classNames('rounded-lg p-3', pendingCount > 0 ? 'bg-red-50' : 'bg-gray-50')}>
-                            <div className={classNames('text-lg font-bold', pendingCount > 0 ? 'text-red-600' : 'text-gray-400')}>{pendingCount}</div>
-                            <div className={classNames('text-xs', pendingCount > 0 ? 'text-red-500' : 'text-gray-400')}>待完成</div>
-                          </div>
+                          {rejectedCount > 0 && (
+                            <div className="flex items-center gap-2 px-3 py-2 bg-red-50 rounded-lg">
+                              <span className="text-xs text-red-600">!</span>
+                              <span className="text-sm font-bold text-red-600">{rejectedCount}</span>
+                              <span className="text-xs text-red-500">已驳回</span>
+                            </div>
+                          )}
+                          {pendingCount > 0 && (
+                            <div className="flex items-center gap-2 px-3 py-2 bg-amber-50 rounded-lg">
+                              <span className="text-xs text-amber-600">●</span>
+                              <span className="text-sm font-bold text-amber-600">{pendingCount}</span>
+                              <span className="text-xs text-amber-500">待执行</span>
+                            </div>
+                          )}
+                          <span className="text-xs text-gray-400 ml-auto">
+                            审批人: {selectedModule.approver?.name || '未指定'}
+                          </span>
                         </div>
                       )
                     })()}
 
-                    {/* Checklist Items with Evidence */}
-                    <div>
-                      <h3 className="text-sm font-semibold text-gray-700 mb-3">执行详情</h3>
-                      <div className="space-y-2">
-                        {selectedModule.items.map((item, idx) => {
-                          const isDone = item.status === 'DONE' || item.status === 'done'
-                          const isNA = item.status === 'NOT_APPLICABLE' || item.status === 'not_applicable'
-                          const isRejected = item.status === 'REJECTED' || item.status === 'rejected'
-                          const isCompleted = isDone || isNA
-                          return (
-                            <div key={item.id} className={classNames(
-                              'rounded-lg border',
-                              isDone ? 'border-green-200 bg-green-50/30' :
-                              isNA ? 'border-gray-200 bg-gray-50' :
-                              isRejected ? 'border-red-200 bg-red-50' :
-                              'border-amber-200 bg-amber-50/30'
-                            )}>
-                              <div className="flex items-start gap-3 p-3">
-                                <span className={classNames(
-                                  'w-6 h-6 rounded-full flex items-center justify-center text-xs flex-shrink-0 mt-0.5',
-                                  isDone ? 'bg-green-500 text-white' :
-                                  isNA ? 'bg-gray-400 text-white' :
-                                  isRejected ? 'bg-red-500 text-white' :
-                                  'bg-amber-500 text-white'
-                                )}>
-                                  {isDone ? '✓' : isNA ? 'N' : isRejected ? '!' : idx + 1}
-                                </span>
-                                <div className="flex-1 min-w-0">
-                                  <div className="flex items-center gap-2 flex-wrap">
-                                    <span className={classNames('text-sm font-medium', isCompleted && 'text-gray-600', (!isCompleted && !isRejected) && 'text-amber-700')}>
-                                      {item.title}
-                                    </span>
-                                    {isNA && <span className="text-xs text-gray-400">不涉及</span>}
-                                    {isRejected && <span className="text-xs text-red-500">需重做</span>}
-                                    {!isCompleted && !isRejected && <span className="text-xs text-amber-500">待执行</span>}
-                                  </div>
-                                  {/* Evidence */}
-                                  {(item.evidenceNotes || (item.attachments?.length > 0)) && (
-                                    <div className="mt-1.5 bg-white rounded p-2.5 border border-gray-100">
-                                      {item.evidenceNotes && <p className="text-sm text-gray-600 whitespace-pre-wrap">{item.evidenceNotes}</p>}
+                    {/* Comparison Table: Expected vs Actual */}
+                    <div className="border rounded-lg overflow-hidden">
+                      <table className="w-full">
+                        <thead>
+                          <tr className="bg-gray-50 border-b text-xs font-medium text-gray-500">
+                            <th className="pl-3 pr-2 py-2.5 text-left w-8"></th>
+                            <th className="px-2 py-2.5 text-left" style={{width:'25%'}}>检查项</th>
+                            <th className="px-2 py-2.5 text-left" style={{width:'35%'}}>预期要求</th>
+                            <th className="px-2 py-2.5 text-left" style={{width:'35%'}}>执行证据</th>
+                            <th className="pr-3 pl-2 py-2.5 text-right w-20">执行人</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y text-sm">
+                          {selectedModule.items.map((item: any) => {
+                            const isDone = item.status === 'DONE' || item.status === 'done'
+                            const isNA = item.status === 'NOT_APPLICABLE' || item.status === 'not_applicable'
+                            const isRejected = item.status === 'REJECTED' || item.status === 'rejected'
+                            const isCompleted = isDone || isNA
+                            return (
+                              <tr key={item.id} className={classNames(
+                                'align-top',
+                                isRejected ? 'bg-red-50/50' : isDone ? 'bg-green-50/30 hover:bg-green-50/50' : 'hover:bg-gray-50',
+                                !isCompleted && !isRejected && 'bg-amber-50/20'
+                              )}>
+                                <td className="pl-3 pr-2 py-2.5">
+                                  <span className={classNames(
+                                    'w-5 h-5 rounded-full flex items-center justify-center text-xs flex-shrink-0',
+                                    isDone ? 'bg-green-500 text-white' : isNA ? 'bg-gray-400 text-white' :
+                                    isRejected ? 'bg-red-500 text-white' : 'bg-amber-500 text-white'
+                                  )}>
+                                    {isDone ? '✓' : isNA ? 'N' : isRejected ? '!' : idx + 1}
+                                  </span>
+                                </td>
+                                <td className="px-2 py-2.5">
+                                  <span className={classNames('font-medium', isCompleted && 'text-gray-500 line-through', isRejected && 'text-red-700')}>
+                                    {item.title}
+                                  </span>
+                                </td>
+                                <td className="px-2 py-2.5 text-gray-500 text-xs">
+                                  {item.description || item.expectedResult || <span className="text-gray-300">-</span>}
+                                </td>
+                                <td className="px-2 py-2.5">
+                                  {isNA ? (
+                                    <span className="text-xs text-gray-400 italic">不涉及</span>
+                                  ) : isCompleted ? (
+                                    <div className="space-y-1">
+                                      {item.evidenceNotes && (
+                                        <p className="text-xs text-gray-600 whitespace-pre-wrap leading-relaxed">{item.evidenceNotes}</p>
+                                      )}
                                       {item.attachments?.length > 0 && (
-                                        <div className={classNames('flex flex-wrap gap-2', item.evidenceNotes && 'mt-2')}>
+                                        <div className="flex flex-wrap gap-1">
                                           {item.attachments.map((att: any) => (
                                             <a key={att.id} href={att.filePath} target="_blank" rel="noopener noreferrer"
-                                              className="inline-flex items-center gap-1.5 px-2.5 py-1.5 bg-gray-50 rounded-lg border text-xs hover:bg-gray-100 transition">
-                                              {att.fileType === 'image' ? '🖼️' : att.fileType === 'pdf' ? '📄' : att.fileType === 'word' ? '📝' : att.fileType === 'excel' ? '📊' : '📎'}
-                                              <span className="text-blue-600 hover:underline truncate max-w-[200px]">{att.fileName}</span>
-                                              <span className="text-gray-400">({(att.fileSize / 1024).toFixed(0)}KB)</span>
+                                              className="inline-flex items-center gap-1 px-1.5 py-0.5 bg-blue-50 rounded text-xs text-blue-600 hover:bg-blue-100 transition">
+                                              {att.fileType === 'image' ? '🖼️' : att.fileType === 'pdf' ? '📄' : '📎'}
+                                              {att.fileName}
                                             </a>
                                           ))}
                                         </div>
                                       )}
+                                      {isRejected && item.rejectReason && (
+                                        <div className="bg-red-100 rounded px-2 py-1 text-xs text-red-600">
+                                          ⚠️ {item.rejectReason}
+                                        </div>
+                                      )}
                                     </div>
+                                  ) : (
+                                    <span className="text-xs text-amber-500">⏳ 待执行</span>
                                   )}
-                                  {/* Executor & Time */}
-                                  {(item.executor || item.executedAt) && (
-                                    <div className="flex items-center gap-3 mt-1.5 text-xs text-gray-400">
-                                      {item.executor && <span>👤 {item.executor.name}</span>}
-                                      {item.executedAt && <span>🕐 {formatDate(item.executedAt)}</span>}
-                                    </div>
-                                  )}
-                                  {/* Reject reason */}
-                                  {item.rejectReason && (
-                                    <div className="mt-1.5 bg-red-50 rounded p-2 text-sm text-red-600">
-                                      ❌ 驳回理由：{item.rejectReason}
-                                    </div>
-                                  )}
-                                </div>
-                              </div>
-                            </div>
-                          )
-                        })}
-                      </div>
+                                </td>
+                                <td className="pr-3 pl-2 py-2.5 text-right text-xs text-gray-400 whitespace-nowrap">
+                                  {item.executor?.name || '-'}
+                                  {item.executedAt && <br />}
+                                  {item.executedAt && <span className="text-gray-300">{formatDate(item.executedAt)}</span>}
+                                </td>
+                              </tr>
+                            )
+                          })}
+                        </tbody>
+                      </table>
                     </div>
 
                     {/* Approval Actions */}
-                    <div className="pt-4 border-t">
-                      {editMode ? (
-                        <>
-                          <h3 className="text-sm font-semibold text-gray-700 mb-2">审批意见</h3>
+                    {editMode ? (
+                      <div className="flex items-start gap-4 p-4 bg-gray-50 rounded-lg">
+                        <div className="flex-1">
                           <textarea
-                            className="w-full px-4 py-2.5 rounded-lg border border-gray-300 focus:ring-2 focus:ring-blue-500 outline-none transition text-sm"
+                            className="w-full px-3 py-2 rounded-lg border border-gray-300 focus:ring-2 focus:ring-blue-500 outline-none transition text-sm"
                             rows={2}
-                            placeholder="填写审批意见（可选）..."
+                            placeholder="审批意见（可选）..."
                           />
-                          <div className="flex gap-3 mt-4">
-                            <button
-                              onClick={() => handleApprove(selectedModule.id!)}
-                              disabled={actionLoading}
-                              className="flex-1 py-2.5 bg-green-600 text-white rounded-lg font-medium hover:bg-green-500 transition disabled:opacity-50"
-                            >
-                              ✅ 审批通过
-                            </button>
-                            <button
-                              onClick={() => { setShowReject(selectedModule.id!); setRejectItemIds([]); setRejectReason('') }}
-                              className="px-6 py-2.5 border border-red-200 text-red-600 rounded-lg font-medium hover:bg-red-50 transition"
-                            >
-                              ❌ 驳回
-                            </button>
-                          </div>
-                        </>
-                      ) : (
-                        <div className="p-3 bg-gray-50 rounded-lg text-center text-sm text-gray-500">
-                          点击右上角"编辑"按钮进行审批操作
                         </div>
-                      )}
-                    </div>
+                        <div className="flex items-center gap-2 flex-shrink-0">
+                          <button
+                            onClick={() => handleApprove(selectedModule.id!)}
+                            disabled={actionLoading}
+                            className="px-6 py-2.5 bg-green-600 text-white rounded-lg text-sm font-medium hover:bg-green-500 transition disabled:opacity-50"
+                          >
+                            ✅ 通过
+                          </button>
+                          <button
+                            onClick={() => { setShowReject(selectedModule.id!); setRejectItemIds([]); setRejectReason('') }}
+                            className="px-6 py-2.5 border border-red-200 text-red-600 rounded-lg text-sm font-medium hover:bg-red-50 transition"
+                          >
+                            ❌ 驳回
+                          </button>
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="p-3 bg-gray-50 rounded-lg text-center text-sm text-gray-500">
+                        点击右上角"编辑"按钮进行审批操作
+                      </div>
+                    )}
                   </div>
                 )}
               </div>
