@@ -102,22 +102,23 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
     const { changeModuleId, rejectReason, rejectItemIds } = body
 
     if (rejectItemIds && rejectItemIds.length > 0) {
-      // Reject specific items
+      // Reject specific items only
       for (const itemId of rejectItemIds) {
         await prisma.checklistItem.update({
           where: { id: itemId },
           data: { status: 'REJECTED', rejectReason },
         })
       }
+      // Keep module in REVIEWING status - wait for re-execution
       await prisma.changeModule.update({
         where: { id: changeModuleId },
-        data: { status: 'EXECUTING', rejectReason },
+        data: { status: 'EXECUTING' },
       })
     } else {
-      // Reject all
+      // Reject all items in module
       await prisma.checklistItem.updateMany({
         where: { changeModuleId },
-        data: { status: 'REJECTED' },
+        data: { status: 'REJECTED', rejectReason },
       })
       await prisma.changeModule.update({
         where: { id: changeModuleId },
@@ -131,6 +132,27 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
       data: { status: 'EXECUTING' },
     })
 
+    return NextResponse.json({ ok: true })
+  }
+
+  if (action === 'reject_item') {
+    const { itemId, rejectReason } = body
+    await prisma.checklistItem.update({
+      where: { id: itemId },
+      data: { status: 'REJECTED', rejectReason },
+    })
+    // Get the module and set it back to EXECUTING
+    const item = await prisma.checklistItem.findUnique({ where: { id: itemId }, select: { changeModuleId: true } })
+    if (item) {
+      await prisma.changeModule.update({
+        where: { id: item.changeModuleId },
+        data: { status: 'EXECUTING' },
+      })
+    }
+    await prisma.changeProject.update({
+      where: { id },
+      data: { status: 'EXECUTING' },
+    })
     return NextResponse.json({ ok: true })
   }
 
