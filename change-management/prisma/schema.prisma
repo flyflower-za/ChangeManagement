@@ -262,6 +262,7 @@ model AiConfig {
   apiKey    String  // API密钥
   baseUrl   String  @default("https://api.openai.com/v1") // API地址
   model     String  @default("gpt-4o-mini") // 模型名称
+  prompt    String  @default("") // 自定义提示词模板
   enabled   Boolean @default(false)
   updatedAt DateTime @updatedAt
 

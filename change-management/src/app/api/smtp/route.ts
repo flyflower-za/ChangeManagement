@@ -28,7 +28,7 @@ export async function PUT(req: NextRequest) {
       data: { host, port: Number(port), user: smtpUser, pass: pass || '', encryption, enabled },
     })
   }
-  return NextResponse.json({ ok: true, host: config.host, port: config.port, enabled: config.enabled })
+  return NextResponse.json({ ok: true, host: config.host, port: config.port, user: config.user, encryption: config.encryption, enabled: config.enabled })
 }
 
 export async function POST(req: NextRequest) {

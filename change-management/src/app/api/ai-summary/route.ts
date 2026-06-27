@@ -51,7 +51,11 @@ export async function POST(req: NextRequest) {
 检查项详情:
 ${itemsList}`
 
-  const prompt = `你是一个变更管理系统的审批助手。请根据以下变更检查项的执行结果，生成一份简洁的审批前摘要（200字以内），包括：
+  // Use custom prompt if configured, otherwise default
+  const customPrompt = aiConfig.prompt?.trim()
+  const userPrompt = customPrompt
+    ? customPrompt.replace('{{context}}', summary)
+    : `你是一个变更管理系统的审批助手。请根据以下变更检查项的执行结果，生成一份简洁的审批前摘要（200字以内），包括：
 1. 整体执行情况概述
 2. 需要审批人关注的风险点（如有驳回项、未完成项等）
 3. 审批建议（建议通过/需关注/建议驳回）
@@ -67,7 +71,7 @@ ${itemsList}`
       },
       body: JSON.stringify({
         model: aiConfig.model,
-        messages: [{ role: 'user', content: prompt }],
+        messages: [{ role: 'user', content: userPrompt }],
         max_tokens: 500,
         temperature: 0.3,
       }),

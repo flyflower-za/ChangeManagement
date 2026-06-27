@@ -493,21 +493,36 @@ function SmptTemplateCard({ icon, color, title, desc, templateKey, subject: defa
 }
 
 function AiConfigPanel({ currentUser }: { currentUser: any }) {
-  const [config, setConfig] = useState({ apiKey: '', baseUrl: 'https://api.openai.com/v1', model: 'gpt-4o-mini', enabled: false })
+  const DEFAULT_PROMPT = `你是一个变更管理系统的审批助手。请根据以下变更检查项的执行结果，生成一份简洁的审批前摘要（200字以内），包括：
+1. 整体执行情况概述
+2. 需要审批人关注的风险点（如有驳回项、未完成项等）
+3. 审批建议（建议通过/需关注/建议驳回）
+
+注意：只需1句话的标题+2-3句话的关键信息，不要长篇大论。保持客观，只说事实。
+
+{{context}}`
+
+  const [config, setConfig] = useState({ apiKey: '', baseUrl: 'https://api.openai.com/v1', model: 'gpt-4o-mini', prompt: DEFAULT_PROMPT, enabled: false })
   const [saving, setSaving] = useState(false)
   const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null)
 
   useEffect(() => {
     fetch('/api/ai-config').then(r => r.json()).then(d => {
-      if (d) setConfig({ apiKey: '', baseUrl: d.baseUrl || 'https://api.openai.com/v1', model: d.model || 'gpt-4o-mini', enabled: d.enabled || false })
+      if (d) setConfig({ apiKey: '', baseUrl: d.baseUrl || 'https://api.openai.com/v1', model: d.model || 'gpt-4o-mini', prompt: d.prompt || DEFAULT_PROMPT, enabled: d.enabled || false })
     })
   }, [])
 
   const save = async () => {
     setSaving(true); setMessage(null)
-    const res = await fetch('/api/ai-config', { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(config) })
+    const res = await fetch('/api/ai-config', { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ apiKey: config.apiKey, baseUrl: config.baseUrl, model: config.model, prompt: config.prompt, enabled: config.enabled }) })
     const data = await res.json()
-    setMessage(data.error ? { type: 'error', text: data.error } : { type: 'success', text: '配置已保存' })
+    if (data.error) {
+      setMessage({ type: 'error', text: data.error })
+    } else {
+      setMessage({ type: 'success', text: '配置已保存' })
+      // Update local state to reflect saved values
+      setConfig(prev => ({ ...prev, apiKey: '', baseUrl: data.baseUrl, model: data.model, prompt: data.prompt || DEFAULT_PROMPT, enabled: data.enabled }))
+    }
     setSaving(false)
   }
 
@@ -528,6 +543,7 @@ function AiConfigPanel({ currentUser }: { currentUser: any }) {
           <div className="col-span-2"><label className="block text-xs font-medium mb-1">API 地址</label><input value={config.baseUrl} onChange={e => setConfig({ ...config, baseUrl: e.target.value })} className="w-full px-3 py-2 rounded-lg border text-sm focus:ring-2 focus:ring-blue-500 outline-none" placeholder="https://api.openai.com/v1" /></div>
           <div><label className="block text-xs font-medium mb-1">模型</label><input value={config.model} onChange={e => setConfig({ ...config, model: e.target.value })} className="w-full px-3 py-2 rounded-lg border text-sm focus:ring-2 focus:ring-blue-500 outline-none" placeholder="gpt-4o-mini" /></div>
           <div><label className="block text-xs font-medium mb-1">API Key</label><input type="password" value={config.apiKey} onChange={e => setConfig({ ...config, apiKey: e.target.value })} className="w-full px-3 py-2 rounded-lg border text-sm focus:ring-2 focus:ring-blue-500 outline-none" placeholder="sk-..." /></div>
+          <div className="col-span-4"><label className="block text-xs font-medium mb-1">提示词模板 <span className="text-gray-400 font-normal">（使用 {'{{context}}'} 占位符注入检查项数据）</span></label><textarea value={config.prompt} onChange={e => setConfig({ ...config, prompt: e.target.value })} rows={4} className="w-full px-3 py-2 rounded-lg border text-sm focus:ring-2 focus:ring-blue-500 outline-none font-mono text-xs" /></div>
         </div>
         {message && <div className={classNames('text-sm p-3 rounded-lg', message.type === 'success' ? 'bg-green-50 text-green-700' : 'bg-red-50 text-red-600')}>{message.text}</div>}
         <button onClick={save} disabled={saving} className="px-8 py-2 bg-gray-900 text-white rounded-lg text-sm font-medium hover:bg-gray-800 disabled:opacity-50">{saving ? '保存中...' : '保存配置'}</button>

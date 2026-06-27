@@ -4,9 +4,9 @@ import { getCurrentUser } from '@/lib/auth'
 
 export async function GET() {
   const config = await prisma.aiConfig.findFirst({
-    select: { id: true, baseUrl: true, model: true, enabled: true }
+    select: { id: true, baseUrl: true, model: true, prompt: true, enabled: true }
   })
-  return NextResponse.json(config || { baseUrl: 'https://api.openai.com/v1', model: 'gpt-4o-mini', enabled: false })
+  return NextResponse.json(config || { baseUrl: 'https://api.openai.com/v1', model: 'gpt-4o-mini', prompt: '', enabled: false })
 }
 
 export async function PUT(req: NextRequest) {
@@ -14,18 +14,19 @@ export async function PUT(req: NextRequest) {
   if (!user || user.role !== 'admin') return NextResponse.json({ error: '无权限' }, { status: 403 })
 
   const body = await req.json()
-  const { apiKey, baseUrl, model, enabled } = body
+  const { apiKey, baseUrl, model, prompt, enabled } = body
   const existing = await prisma.aiConfig.findFirst()
 
+  let config
   if (existing) {
-    await prisma.aiConfig.update({
+    config = await prisma.aiConfig.update({
       where: { id: existing.id },
-      data: { apiKey: apiKey || existing.apiKey, baseUrl, model, enabled },
+      data: { apiKey: apiKey || existing.apiKey, baseUrl, model, prompt: prompt || '', enabled },
     })
   } else {
-    await prisma.aiConfig.create({
-      data: { apiKey: apiKey || '', baseUrl, model, enabled },
+    config = await prisma.aiConfig.create({
+      data: { apiKey: apiKey || '', baseUrl, model, prompt: prompt || '', enabled },
     })
   }
-  return NextResponse.json({ ok: true })
+  return NextResponse.json({ ok: true, baseUrl: config.baseUrl, model: config.model, prompt: config.prompt, enabled: config.enabled })
 }
