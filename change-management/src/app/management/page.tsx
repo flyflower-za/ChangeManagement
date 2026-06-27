@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { classNames } from '@/lib/utils'
 
-type Tab = 'departments' | 'products' | 'templates'
+type Tab = 'departments' | 'products' | 'templates' | 'smtp'
 
 export default function ManagementPage() {
   const router = useRouter()
@@ -22,6 +22,7 @@ export default function ManagementPage() {
     { key: 'departments', label: '部门管理', icon: '🏢' },
     { key: 'products', label: '产品管理', icon: '📦' },
     { key: 'templates', label: '模版管理', icon: '📝' },
+    { key: 'smtp', label: '邮件配置', icon: '📧' },
   ]
 
   return (
@@ -44,6 +45,7 @@ export default function ManagementPage() {
       {tab === 'departments' && <DepartmentsPanel currentUser={currentUser} router={router} />}
       {tab === 'products' && <ProductsPanel currentUser={currentUser} />}
       {tab === 'templates' && <TemplatesPanel />}
+      {tab === 'smtp' && <SmtpPanel currentUser={currentUser} />}
     </div>
   )
 }
@@ -333,5 +335,157 @@ function TemplateEditor({ module, users, onSave }: { module: any; users: any[]; 
       </div>
       <div className="px-4 py-3 border-t">{editMode ? <button onClick={addItem} className="text-sm text-blue-600 hover:underline">+ 添加检查项</button> : <div className="text-sm text-gray-400">点击右上角编辑按钮修改</div>}</div>
     </div>
+  )
+}
+
+// ============ 邮件配置 ============
+function SmtpPanel({ currentUser }: { currentUser: any }) {
+  const [config, setConfig] = useState({ host: '', port: 587, user: '', pass: '', encryption: 'none', enabled: false })
+  const [saving, setSaving] = useState(false)
+  const [testing, setTesting] = useState(false)
+  const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null)
+
+  useEffect(() => {
+    fetch('/api/smtp').then(r => r.json()).then(d => {
+      if (d) setConfig({ host: d.host || '', port: d.port || 587, user: d.user || '', pass: '', encryption: d.encryption || 'none', enabled: d.enabled || false })
+    })
+  }, [])
+
+  const save = async () => {
+    setSaving(true); setMessage(null)
+    const res = await fetch('/api/smtp', { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(config) })
+    const data = await res.json()
+    setMessage(data.error ? { type: 'error', text: data.error } : { type: 'success', text: '配置已保存' })
+    setSaving(false)
+  }
+
+  const testEmail = async () => {
+    setTesting(true); setMessage(null)
+    const res = await fetch('/api/smtp', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(config) })
+    const data = await res.json()
+    setMessage(data.error ? { type: 'error', text: data.error } : { type: 'success', text: data.message || '测试邮件已发送' })
+    setTesting(false)
+  }
+
+  return (
+    <div className="space-y-4">
+      <div className="bg-white rounded-xl border p-6 space-y-4">
+        <div className="flex items-center justify-between">
+          <h2 className="font-semibold">SMTP 邮件配置</h2>
+          <label className="flex items-center gap-2 text-sm">
+            <input type="checkbox" checked={config.enabled} onChange={e => setConfig({ ...config, enabled: e.target.checked })} className="rounded" />
+            {config.enabled ? <span className="text-green-600">已启用</span> : <span className="text-gray-400">已禁用</span>}
+          </label>
+        </div>
+        <div className="grid grid-cols-5 gap-3">
+          <div className="col-span-2"><label className="block text-xs font-medium mb-1">SMTP 服务器</label><input value={config.host} onChange={e => setConfig({ ...config, host: e.target.value })} className="w-full px-3 py-2 rounded-lg border text-sm focus:ring-2 focus:ring-blue-500 outline-none" placeholder="smtp.example.com" /></div>
+          <div><label className="block text-xs font-medium mb-1">端口</label><input type="number" value={config.port} onChange={e => setConfig({ ...config, port: Number(e.target.value) })} className="w-full px-3 py-2 rounded-lg border text-sm focus:ring-2 focus:ring-blue-500 outline-none" /></div>
+          <div><label className="block text-xs font-medium mb-1">加密方式</label><select value={config.encryption} onChange={e => setConfig({ ...config, encryption: e.target.value })} className="w-full px-3 py-2 rounded-lg border text-sm focus:ring-2 focus:ring-blue-500 outline-none"><option value="none">无加密</option><option value="tls">STARTTLS</option><option value="ssl">SSL/TLS</option></select></div>
+          <div><label className="block text-xs font-medium mb-1">密码（可选）</label><input type="password" value={config.pass} onChange={e => setConfig({ ...config, pass: e.target.value })} className="w-full px-3 py-2 rounded-lg border text-sm focus:ring-2 focus:ring-blue-500 outline-none" placeholder="无需密码则留空" /></div>
+          <div className="col-span-2"><label className="block text-xs font-medium mb-1">发件人邮箱</label><input type="email" value={config.user} onChange={e => setConfig({ ...config, user: e.target.value })} className="w-full px-3 py-2 rounded-lg border text-sm focus:ring-2 focus:ring-blue-500 outline-none" placeholder="noreply@company.com" /></div>
+        </div>
+        {message && <div className={classNames('text-sm p-3 rounded-lg', message.type === 'success' ? 'bg-green-50 text-green-700' : 'bg-red-50 text-red-600')}>{message.text}</div>}
+        <div className="flex gap-3 pt-2">
+          <button onClick={save} disabled={saving} className="flex-1 py-2 bg-gray-900 text-white rounded-lg text-sm font-medium hover:bg-gray-800 disabled:opacity-50">{saving ? '保存中...' : '保存配置'}</button>
+          <button onClick={testEmail} disabled={testing} className="px-6 py-2 border rounded-lg text-sm font-medium hover:bg-gray-50 disabled:opacity-50">{testing ? '发送中...' : '发送测试邮件'}</button>
+        </div>
+      </div>
+      <div className="bg-white rounded-xl border p-6">
+        <h3 className="font-semibold mb-1">📬 邮件模板</h3>
+        <p className="text-xs text-gray-400 mb-3">点击查看各通知类型的邮件模板，包含完整样式和内容预览</p>
+        <div className="grid grid-cols-4 gap-2">
+          {[
+            { icon:'📋', color:'hover:bg-blue-50 border-blue-200', title:'创建变更通知', desc:'发起人+审批人', subject:'【变更通知】#1 产品A产线改造', body:'<div style="font-family:Arial,sans-serif;max-width:600px;margin:0 auto;background:#fff;border-radius:8px;overflow:hidden;box-shadow:0 2px 8px rgba(0,0,0,0.1)"><div style="background:#1a73e8;padding:24px"><h2 style="color:#fff;margin:0;font-size:18px">📋 新变更项目已创建</h2></div><div style="padding:24px"><p style="color:#333;margin:0 0 16px">您好，以下变更项目已创建，请关注：</p><table style="border-collapse:collapse;width:100%;font-size:14px"><tr style="border-bottom:1px solid #eee"><td style="padding:10px 12px;color:#888;width:72px">编号</td><td style="padding:10px 12px;font-weight:600;color:#1a73e8">#1</td></tr><tr style="border-bottom:1px solid #eee;background:#f8f9fa"><td style="padding:10px 12px;color:#888">标题</td><td style="padding:10px 12px;font-weight:600">产品A产线改造</td></tr><tr style="border-bottom:1px solid #eee"><td style="padding:10px 12px;color:#888">描述</td><td style="padding:10px 12px;color:#555">产品A装配线自动化改造项目</td></tr><tr style="border-bottom:1px solid #eee;background:#f8f9fa"><td style="padding:10px 12px;color:#888">优先级</td><td style="padding:10px 12px"><span style="background:#fff3e0;color:#e65100;padding:2px 8px;border-radius:4px;font-size:12px">🔴 紧急</span></td></tr><tr style="border-bottom:1px solid #eee"><td style="padding:10px 12px;color:#888">发起人</td><td style="padding:10px 12px">李四</td></tr><tr style="border-bottom:1px solid #eee;background:#f8f9fa"><td style="padding:10px 12px;color:#888">涉及部门</td><td style="padding:10px 12px">设备部门、工艺部门、生产1</td></tr><tr><td style="padding:10px 12px;color:#888">截止时间</td><td style="padding:10px 12px">2026年6月30日</td></tr></table><div style="margin-top:24px;text-align:center"><a href="#" style="display:inline-block;background:#1a73e8;color:#fff;padding:12px 32px;border-radius:6px;text-decoration:none;font-weight:600;font-size:14px">查看变更详情 →</a></div></div><div style="background:#f8f9fa;padding:16px 24px;border-top:1px solid #eee;font-size:12px;color:#999;text-align:center">此邮件由变更管理系统自动发送，请勿回复</div></div>' },
+            { icon:'⏳', color:'hover:bg-orange-50 border-orange-200', title:'审批提醒', desc:'部门检查项完成', subject:'【审批提醒】设备部门检查项已完成', body:'<div style="font-family:Arial,sans-serif;max-width:600px;margin:0 auto;background:#fff;border-radius:8px;overflow:hidden;box-shadow:0 2px 8px rgba(0,0,0,0.1)"><div style="background:#e67e22;padding:24px"><h2 style="color:#fff;margin:0;font-size:18px">⏳ 等待您的审批</h2></div><div style="padding:24px"><p style="color:#333;margin:0 0 16px">「<b>设备部门</b>」的所有检查项已执行完毕，请尽快审批。</p><table style="border-collapse:collapse;width:100%;font-size:14px"><tr style="border-bottom:1px solid #eee"><td style="padding:10px 12px;color:#888;width:72px">变更项目</td><td style="padding:10px 12px;font-weight:600">产品A产线改造</td></tr><tr style="border-bottom:1px solid #eee;background:#f8f9fa"><td style="padding:10px 12px;color:#888">审批部门</td><td style="padding:10px 12px">设备部门</td></tr><tr><td style="padding:10px 12px;color:#888">检查项</td><td style="padding:10px 12px">8 项全部完成</td></tr></table><div style="margin-top:24px;text-align:center"><a href="#" style="display:inline-block;background:#e67e22;color:#fff;padding:12px 32px;border-radius:6px;text-decoration:none;font-weight:600;font-size:14px">前往审批 →</a></div></div><div style="background:#f8f9fa;padding:16px 24px;border-top:1px solid #eee;font-size:12px;color:#999;text-align:center">此邮件由变更管理系统自动发送</div></div>' },
+            { icon:'✅', color:'hover:bg-green-50 border-green-200', title:'审批结果', desc:'通过/驳回通知发起人', subject:'【审批通过】设备部门 - 产品A产线改造', body:'<div style="font-family:Arial,sans-serif;max-width:600px;margin:0 auto;background:#fff;border-radius:8px;overflow:hidden;box-shadow:0 2px 8px rgba(0,0,0,0.1)"><div style="background:#27ae60;padding:24px"><h2 style="color:#fff;margin:0;font-size:18px">✅ 审批已通过</h2></div><div style="padding:24px"><p style="color:#333;margin:0 0 16px">您发起的变更「<b>产品A产线改造</b>」中的模块已通过审批。</p><table style="border-collapse:collapse;width:100%;font-size:14px"><tr style="border-bottom:1px solid #eee"><td style="padding:10px 12px;color:#888;width:72px">审批模块</td><td style="padding:10px 12px;font-weight:600">设备部门</td></tr><tr style="border-bottom:1px solid #eee;background:#f8f9fa"><td style="padding:10px 12px;color:#888">审批人</td><td style="padding:10px 12px">王五</td></tr><tr><td style="padding:10px 12px;color:#888">审批时间</td><td style="padding:10px 12px">2026/06/27 15:30</td></tr></table><div style="margin-top:24px;text-align:center"><a href="#" style="display:inline-block;background:#1a73e8;color:#fff;padding:12px 32px;border-radius:6px;text-decoration:none;font-weight:600;font-size:14px">查看审批详情 →</a></div></div><div style="background:#f8f9fa;padding:16px 24px;border-top:1px solid #eee;font-size:12px;color:#999;text-align:center">此邮件由变更管理系统自动发送</div></div>' },
+            { icon:'⏰', color:'hover:bg-red-50 border-red-200', title:'到期提醒', desc:'7天/3天到期预警', subject:'【⏰ 即将到期】剩余3天 - 产品A产线改造', body:'<div style="font-family:Arial,sans-serif;max-width:600px;margin:0 auto;background:#fff;border-radius:8px;overflow:hidden;box-shadow:0 2px 8px rgba(0,0,0,0.1)"><div style="background:#e74c3c;padding:24px"><h2 style="color:#fff;margin:0;font-size:18px">⏰ 截止日期临近</h2></div><div style="padding:24px"><div style="background:#fff3e0;border-left:4px solid #e65100;padding:12px 16px;margin:0 0 16px;font-size:14px">变更「<b>产品A产线改造</b>」将在 <b style="color:#e74c3c;font-size:18px">3天</b> 后到期，请尽快处理！</div><table style="border-collapse:collapse;width:100%;font-size:14px"><tr style="border-bottom:1px solid #eee"><td style="padding:10px 12px;color:#888;width:72px">当前进度</td><td style="padding:10px 12px"><div style="background:#eee;border-radius:4px;height:8px;width:100%"><div style="background:#e74c3c;width:40%;height:8px;border-radius:4px"></div></div><span style="font-size:12px;color:#e74c3c;margin-left:8px">5/8 项</span></td></tr><tr style="border-bottom:1px solid #eee;background:#f8f9fa"><td style="padding:10px 12px;color:#888">截止时间</td><td style="padding:10px 12px;font-weight:600;color:#e74c3c">2026年6月30日</td></tr></table><div style="margin-top:24px;text-align:center"><a href="#" style="display:inline-block;background:#e74c3c;color:#fff;padding:12px 32px;border-radius:6px;text-decoration:none;font-weight:600;font-size:14px">立即处理 →</a></div></div><div style="background:#f8f9fa;padding:16px 24px;border-top:1px solid #eee;font-size:12px;color:#999;text-align:center">此邮件由变更管理系统自动发送</div></div>' },
+            { icon:'❌', color:'hover:bg-pink-50 border-pink-200', title:'检查项驳回', desc:'通知执行人重做', subject:'【❌ 检查项需重做】设备运行状态检查', body:'<div style="font-family:Arial,sans-serif;max-width:600px;margin:0 auto;background:#fff;border-radius:8px;overflow:hidden;box-shadow:0 2px 8px rgba(0,0,0,0.1)"><div style="background:#e74c3c;padding:24px"><h2 style="color:#fff;margin:0;font-size:18px">❌ 检查项被驳回，需重新执行</h2></div><div style="padding:24px"><div style="background:#fdf2f2;border-left:4px solid #e74c3c;padding:12px 16px;margin:0 0 16px"><p style="margin:0 0 4px;font-size:12px;color:#e74c3c">驳回理由</p><p style="margin:0;font-size:14px;color:#c0392b">执行证据不足，请补充设备运行状态的截图和日志文件</p></div><table style="border-collapse:collapse;width:100%;font-size:14px"><tr style="border-bottom:1px solid #eee"><td style="padding:10px 12px;color:#888;width:72px">驳回项</td><td style="padding:10px 12px;font-weight:600">设备运行状态检查</td></tr><tr style="border-bottom:1px solid #eee;background:#f8f9fa"><td style="padding:10px 12px;color:#888">所属部门</td><td style="padding:10px 12px">设备部门</td></tr><tr><td style="padding:10px 12px;color:#888">变更项目</td><td style="padding:10px 12px">产品A产线改造</td></tr></table><div style="margin-top:24px;text-align:center"><a href="#" style="display:inline-block;background:#e74c3c;color:#fff;padding:12px 32px;border-radius:6px;text-decoration:none;font-weight:600;font-size:14px">重新执行 →</a></div></div><div style="background:#f8f9fa;padding:16px 24px;border-top:1px solid #eee;font-size:12px;color:#999;text-align:center">此邮件由变更管理系统自动发送</div></div>' },
+            { icon:'👤', color:'hover:bg-indigo-50 border-indigo-200', title:'任务分配', desc:'通知执行人', subject:'【📋 新任务】设备运行状态检查', body:'<div style="font-family:Arial,sans-serif;max-width:600px;margin:0 auto;background:#fff;border-radius:8px;overflow:hidden;box-shadow:0 2px 8px rgba(0,0,0,0.1)"><div style="background:#1a73e8;padding:24px"><h2 style="color:#fff;margin:0;font-size:18px">📋 您有新的检查任务</h2></div><div style="padding:24px"><p style="color:#333;margin:0 0 16px">您被分配了以下检查项，请及时执行：</p><table style="border-collapse:collapse;width:100%;font-size:14px"><tr style="border-bottom:1px solid #eee"><td style="padding:10px 12px;color:#888;width:72px">检查项</td><td style="padding:10px 12px;font-weight:600">设备运行状态检查</td></tr><tr style="border-bottom:1px solid #eee;background:#f8f9fa"><td style="padding:10px 12px;color:#888">所属部门</td><td style="padding:10px 12px">设备部门</td></tr><tr style="border-bottom:1px solid #eee"><td style="padding:10px 12px;color:#888">变更项目</td><td style="padding:10px 12px">产品A产线改造</td></tr><tr style="border-bottom:1px solid #eee;background:#f8f9fa"><td style="padding:10px 12px;color:#888">要求</td><td style="padding:10px 12px;color:#555">确认设备当前运行状态正常，无异常报警</td></tr><tr><td style="padding:10px 12px;color:#888">截止时间</td><td style="padding:10px 12px">2026年6月30日</td></tr></table><div style="margin-top:24px;text-align:center"><a href="#" style="display:inline-block;background:#1a73e8;color:#fff;padding:12px 32px;border-radius:6px;text-decoration:none;font-weight:600;font-size:14px">开始执行 →</a></div></div><div style="background:#f8f9fa;padding:16px 24px;border-top:1px solid #eee;font-size:12px;color:#999;text-align:center">此邮件由变更管理系统自动发送</div></div>' },
+            { icon:'🏁', color:'hover:bg-teal-50 border-teal-200', title:'变更完成', desc:'全员通知', subject:'【✅ 变更完成】#1 产品A产线改造', body:'<div style="font-family:Arial,sans-serif;max-width:600px;margin:0 auto;background:#fff;border-radius:8px;overflow:hidden;box-shadow:0 2px 8px rgba(0,0,0,0.1)"><div style="background:#27ae60;padding:24px"><h2 style="color:#fff;margin:0;font-size:18px">🎉 变更项目已完成</h2></div><div style="padding:24px"><div style="background:#f0faf4;border-left:4px solid #27ae60;padding:12px 16px;margin:0 0 16px"><p style="margin:0;font-size:14px;color:#27ae60">所有模块已审批通过，变更项目顺利完成！</p></div><table style="border-collapse:collapse;width:100%;font-size:14px"><tr style="border-bottom:1px solid #eee"><td style="padding:10px 12px;color:#888;width:72px">项目编号</td><td style="padding:10px 12px;font-weight:600;color:#1a73e8">#1</td></tr><tr style="border-bottom:1px solid #eee;background:#f8f9fa"><td style="padding:10px 12px;color:#888">项目名称</td><td style="padding:10px 12px;font-weight:600">产品A产线改造</td></tr><tr style="border-bottom:1px solid #eee"><td style="padding:10px 12px;color:#888">完成时间</td><td style="padding:10px 12px">2026年6月27日 18:30</td></tr><tr style="border-bottom:1px solid #eee;background:#f8f9fa"><td style="padding:10px 12px;color:#888">参与部门</td><td style="padding:10px 12px">设备部门、工艺部门、生产1、质量部门</td></tr></table><div style="margin-top:24px;text-align:center"><a href="#" style="display:inline-block;background:#27ae60;color:#fff;padding:12px 32px;border-radius:6px;text-decoration:none;font-weight:600;font-size:14px">查看完成报告 →</a></div></div><div style="background:#f8f9fa;padding:16px 24px;border-top:1px solid #eee;font-size:12px;color:#999;text-align:center">此邮件由变更管理系统自动发送</div></div>' },
+            { icon:'📊', color:'hover:bg-purple-50 border-purple-200', title:'待办汇总', desc:'每日/每周摘要', subject:'【📊 每日汇总】您有 3 个待处理事项', body:'<div style="font-family:Arial,sans-serif;max-width:600px;margin:0 auto;background:#fff;border-radius:8px;overflow:hidden;box-shadow:0 2px 8px rgba(0,0,0,0.1)"><div style="background:#1a73e8;padding:24px"><h2 style="color:#fff;margin:0;font-size:18px">📊 每日待办汇总</h2></div><div style="padding:24px"><p style="color:#333;margin:0 0 16px">王五，您好！以下是与您相关的待处理事项：</p><table style="border-collapse:collapse;width:100%;font-size:14px"><thead><tr style="background:#f8f9fa;text-align:left"><th style="padding:10px 12px;border-bottom:2px solid #e0e0e0;font-size:13px;color:#666">变更项目</th><th style="padding:10px 12px;border-bottom:2px solid #e0e0e0;font-size:13px;color:#666">部门</th><th style="padding:10px 12px;border-bottom:2px solid #e0e0e0;font-size:13px;color:#666">状态</th><th style="padding:10px 12px;border-bottom:2px solid #e0e0e0;font-size:13px;color:#666">截止</th></tr></thead><tbody><tr style="border-bottom:1px solid #eee"><td style="padding:10px 12px">产品A产线改造</td><td style="padding:10px 12px">设备部门</td><td style="padding:10px 12px;color:#e67e22;font-weight:600">待审批</td><td style="padding:10px 12px">06/30</td></tr><tr style="border-bottom:1px solid #eee;background:#f8f9fa"><td style="padding:10px 12px">工艺参数优化</td><td style="padding:10px 12px">质量部门</td><td style="padding:10px 12px;color:#e67e22;font-weight:600">待审批</td><td style="padding:10px 12px">07/05</td></tr><tr style="border-bottom:1px solid #eee"><td style="padding:10px 12px">物流系统升级</td><td style="padding:10px 12px">物流部门</td><td style="padding:10px 12px;color:#3498db">待执行(2/8)</td><td style="padding:10px 12px">07/10</td></tr></tbody></table><div style="margin-top:24px;text-align:center"><a href="#" style="display:inline-block;background:#1a73e8;color:#fff;padding:12px 32px;border-radius:6px;text-decoration:none;font-weight:600;font-size:14px">查看我的待办 →</a></div></div><div style="background:#f8f9fa;padding:16px 24px;border-top:1px solid #eee;font-size:12px;color:#999;text-align:center">此邮件由变更管理系统自动发送</div></div>' },
+          ].map((tpl, i) => (
+            <SmptTemplateCard key={i} templateKey={['change_created','approval_reminder','approval_result','deadline_warning','item_rejected','item_assigned','change_completed','digest'][i]} {...tpl} />
+          ))}
+        </div>
+      </div>
+    </div>
+  )
+}
+
+function SmptTemplateCard({ icon, color, title, desc, templateKey, subject: defaultSubject, body: defaultBody }: { icon: string; color: string; title: string; desc: string; templateKey: string; subject: string; body: string }) {
+  const [open, setOpen] = useState(false)
+  const [editing, setEditing] = useState(false)
+  const [subject, setSubject] = useState(defaultSubject)
+  const [htmlBody, setHtmlBody] = useState(defaultBody)
+  const [saving, setSaving] = useState(false)
+
+  const save = async () => {
+    setSaving(true)
+    await fetch('/api/email-templates', {
+      method: 'PUT', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ key: templateKey, name: title, subject, body: htmlBody }),
+    })
+    setSaving(false); setEditing(false)
+  }
+
+  const reset = () => {
+    setSubject(defaultSubject); setHtmlBody(defaultBody); setEditing(false)
+  }
+
+  return (
+    <>
+      <button onClick={() => setOpen(true)} className={classNames('flex items-center gap-2 px-3 py-2.5 rounded-lg border text-sm transition text-left', color)}>
+        <span className="text-lg">{icon}</span>
+        <div><div className="font-medium text-gray-700">{title}</div><div className="text-xs text-gray-400">{desc}</div></div>
+      </button>
+      {open && (
+        <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50" onClick={() => setOpen(false)}>
+          <div className="bg-white rounded-2xl shadow-xl w-full max-w-4xl max-h-[90vh] flex flex-col" onClick={e => e.stopPropagation()}>
+            <div className="flex items-center justify-between p-5 border-b">
+              <h3 className="text-lg font-bold">{icon} {title}</h3>
+              <div className="flex items-center gap-2">
+                {editing ? (
+                  <>
+                    <button onClick={save} disabled={saving} className="px-4 py-1.5 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-500 disabled:opacity-50">{saving ? '保存中...' : '保存'}</button>
+                    <button onClick={reset} className="px-4 py-1.5 border rounded-lg text-sm hover:bg-gray-50">取消</button>
+                  </>
+                ) : (
+                  <button onClick={() => setEditing(true)} className="px-4 py-1.5 bg-gray-100 text-gray-700 rounded-lg text-sm font-medium hover:bg-gray-200">✏️ 编辑HTML</button>
+                )}
+                <button onClick={() => setOpen(false)} className="text-gray-400 hover:text-gray-600 text-xl ml-2">&times;</button>
+              </div>
+            </div>
+            <div className="flex-1 overflow-hidden flex">
+              {editing ? (
+                <>
+                  <div className="flex-1 flex flex-col border-r">
+                    <div className="p-3 border-b bg-gray-50">
+                      <label className="text-xs text-gray-500">邮件主题</label>
+                      <input value={subject} onChange={e => setSubject(e.target.value)} className="w-full px-3 py-1.5 mt-1 rounded border text-sm focus:ring-2 focus:ring-blue-500 outline-none" />
+                    </div>
+                    <textarea value={htmlBody} onChange={e => setHtmlBody(e.target.value)}
+                      className="flex-1 p-4 font-mono text-xs border-none outline-none resize-none"
+                      style={{ fontFamily:'monospace', fontSize:'12px', lineHeight:'1.5' }} />
+                  </div>
+                  <div className="flex-1 overflow-y-auto p-4 bg-gray-50">
+                    <div className="text-xs text-gray-400 mb-2">实时预览</div>
+                    <div className="bg-white border rounded-lg overflow-hidden" dangerouslySetInnerHTML={{ __html: htmlBody }} />
+                  </div>
+                </>
+              ) : (
+                <div className="p-6 space-y-3 overflow-y-auto flex-1">
+                  <div className="bg-gray-50 rounded-lg p-3">
+                    <span className="text-xs text-gray-400">收件人：</span><span className="text-sm text-gray-700">根据触发规则自动匹配</span><br/>
+                    <span className="text-xs text-gray-400">邮件主题：</span><span className="text-sm text-gray-700 font-medium">{subject}</span>
+                  </div>
+                  <div className="text-xs text-gray-400">邮件正文预览：</div>
+                  <div className="border rounded-lg overflow-hidden" dangerouslySetInnerHTML={{ __html: htmlBody }} />
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+    </>
   )
 }

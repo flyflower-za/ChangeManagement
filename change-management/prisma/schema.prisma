@@ -207,6 +207,30 @@ model Attachment {
   @@map("attachments")
 }
 
+model SmtpConfig {
+  id         String  @id @default(cuid())
+  host       String
+  port       Int
+  user       String  // 发件人邮箱（兼SMTP认证用户名）
+  pass       String? // 密码，可选
+  encryption String  @default("none") // none, tls, ssl
+  enabled    Boolean @default(false)
+  updatedAt  DateTime @updatedAt
+
+  @@map("smtp_config")
+}
+
+model EmailTemplate {
+  id      String @id @default(cuid())
+  key     String @unique // 通知类型标识: change_created, approval_reminder, etc.
+  name    String // 模板名称
+  subject String // 默认主题
+  body    String // HTML正文
+  updatedAt DateTime @updatedAt
+
+  @@map("email_templates")
+}
+
 enum ChangeProjectStatus {
   DRAFT
   PENDING

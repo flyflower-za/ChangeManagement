@@ -59,6 +59,8 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
         where: { id: changeModule.id },
         data: { status: 'REVIEWING' },
       })
+      const { notifyModuleReadyForApproval } = await import('@/lib/notify')
+      notifyModuleReadyForApproval(changeModule.id).catch(e => console.error('Notify error:', e))
       // Check if all modules are in reviewing
       const change = await prisma.changeProject.findUnique({
         where: { id },
@@ -77,12 +79,13 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
   if (action === 'approve_module') {
     const changeModule = await prisma.changeModule.update({
       where: { id: body.changeModuleId },
-      data: {
-        status: 'APPROVED',
-        approvedAt: new Date(),
-        approverId: user.id,
-      },
+      data: { status: 'APPROVED', approvedAt: new Date(), approverId: user.id },
     })
+    const cm = await prisma.changeModule.findUnique({ where: { id: body.changeModuleId }, include: { module: true } })
+    if (cm) {
+      const { notifyApprovalResult } = await import('@/lib/notify')
+      notifyApprovalResult(id, cm.module.name, true).catch(e => console.error('Notify error:', e))
+    }
 
     // Check if all modules approved
     const change = await prisma.changeProject.findUnique({
@@ -94,12 +97,21 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
         where: { id },
         data: { status: 'COMPLETED', completedAt: new Date() },
       })
+      // Notify all participants
+      const { notifyChangeCompleted } = await import('@/lib/notify')
+      notifyChangeCompleted(id).catch(e => console.error('Notify error:', e))
     }
     return NextResponse.json(changeModule)
   }
 
   if (action === 'reject_module') {
     const { changeModuleId, rejectReason, rejectItemIds } = body
+    // Notify initiator about rejection
+    const cm = await prisma.changeModule.findUnique({ where: { id: changeModuleId }, include: { module: true } })
+    if (cm) {
+      const { notifyApprovalResult } = await import('@/lib/notify')
+      notifyApprovalResult(id, cm.module.name, false).catch(e => console.error('Notify error:', e))
+    }
 
     if (rejectItemIds && rejectItemIds.length > 0) {
       // Reject specific items only
@@ -141,6 +153,9 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
       where: { id: itemId },
       data: { status: 'REJECTED', rejectReason },
     })
+    // Notify the executor
+    const { notifyItemRejected } = await import('@/lib/notify')
+    notifyItemRejected(itemId, rejectReason).catch(e => console.error('Notify error:', e))
     // Get the module and set it back to EXECUTING
     const item = await prisma.checklistItem.findUnique({ where: { id: itemId }, select: { changeModuleId: true } })
     if (item) {
@@ -177,6 +192,8 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
         where: { id: changeModule.id },
         data: { status: 'REVIEWING' },
       })
+      const { notifyModuleReadyForApproval } = await import('@/lib/notify')
+      notifyModuleReadyForApproval(changeModule.id).catch(e => console.error('Notify error:', e))
       const change = await prisma.changeProject.findUnique({
         where: { id },
         include: { modules: true },
@@ -196,6 +213,9 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
       where: { id: body.itemId },
       data: { executorId: body.executorId },
     })
+    // Notify the assigned executor
+    const { notifyItemAssigned } = await import('@/lib/notify')
+    notifyItemAssigned(item.id).catch(e => console.error('Notify error:', e))
     return NextResponse.json(item)
   }
 

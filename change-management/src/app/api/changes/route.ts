@@ -125,5 +125,9 @@ export async function POST(req: NextRequest) {
     data: { status: 'EXECUTING' },
   })
 
+  // Send notification to related personnel
+  const { notifyChangeCreated } = await import('@/lib/notify')
+  notifyChangeCreated(change.id).catch(e => console.error('Notify error:', e))
+
   return NextResponse.json(change, { status: 201 })
 }
