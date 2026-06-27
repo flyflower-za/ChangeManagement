@@ -57,6 +57,7 @@ export default function ChangeDetailPage() {
   const [actionLoading, setActionLoading] = useState(false)
   const [batchExecutor, setBatchExecutor] = useState('')
   const [batchAssigning, setBatchAssigning] = useState(false)
+  const [approvalFilter, setApprovalFilter] = useState<string>('all') // all | done | na | rejected | pending
   const [editMode, setEditMode] = useState(false)
   const [deleteLoading, setDeleteLoading] = useState(false)
 
@@ -638,36 +639,28 @@ export default function ChangeDetailPage() {
                       const naCount = items.filter((i: any) => i.status === 'NOT_APPLICABLE' || i.status === 'not_applicable').length
                       const rejectedCount = items.filter((i: any) => i.status === 'REJECTED' || i.status === 'rejected').length
                       const pendingCount = items.length - doneCount - naCount - rejectedCount
+                      const filters = [
+                        { key: 'all', label: '总检查项', count: items.length, active: approvalFilter === 'all', color: 'bg-gray-50 text-gray-700 hover:bg-gray-100', dot: null },
+                        { key: 'done', label: '已通过', count: doneCount, active: approvalFilter === 'done', color: 'bg-green-50 text-green-700 hover:bg-green-100', dot: '✓' },
+                        { key: 'na', label: '不涉及', count: naCount, active: approvalFilter === 'na', color: 'bg-gray-100 text-gray-500 hover:bg-gray-200', dot: 'N' },
+                        ...(rejectedCount > 0 ? [{ key: 'rejected', label: '已驳回', count: rejectedCount, active: approvalFilter === 'rejected', color: 'bg-red-50 text-red-700 hover:bg-red-100', dot: '!' }] : []),
+                        ...(pendingCount > 0 ? [{ key: 'pending', label: '待执行', count: pendingCount, active: approvalFilter === 'pending', color: 'bg-amber-50 text-amber-700 hover:bg-amber-100', dot: '●' }] : []),
+                      ] as const
                       return (
-                        <div className="flex items-center gap-3 flex-wrap">
-                          <div className="flex items-center gap-2 px-3 py-2 bg-gray-50 rounded-lg">
-                            <span className="text-sm font-bold">{items.length}</span>
-                            <span className="text-xs text-gray-500">总检查项</span>
-                          </div>
-                          <div className="flex items-center gap-2 px-3 py-2 bg-green-50 rounded-lg">
-                            <span className="text-xs text-green-600">✓</span>
-                            <span className="text-sm font-bold text-green-600">{doneCount}</span>
-                            <span className="text-xs text-green-500">已通过</span>
-                          </div>
-                          <div className="flex items-center gap-2 px-3 py-2 bg-gray-100 rounded-lg">
-                            <span className="text-xs text-gray-400">N</span>
-                            <span className="text-sm font-bold text-gray-500">{naCount}</span>
-                            <span className="text-xs text-gray-400">不涉及</span>
-                          </div>
-                          {rejectedCount > 0 && (
-                            <div className="flex items-center gap-2 px-3 py-2 bg-red-50 rounded-lg">
-                              <span className="text-xs text-red-600">!</span>
-                              <span className="text-sm font-bold text-red-600">{rejectedCount}</span>
-                              <span className="text-xs text-red-500">已驳回</span>
-                            </div>
-                          )}
-                          {pendingCount > 0 && (
-                            <div className="flex items-center gap-2 px-3 py-2 bg-amber-50 rounded-lg">
-                              <span className="text-xs text-amber-600">●</span>
-                              <span className="text-sm font-bold text-amber-600">{pendingCount}</span>
-                              <span className="text-xs text-amber-500">待执行</span>
-                            </div>
-                          )}
+                        <div className="flex items-center gap-2 flex-wrap">
+                          {filters.map(f => (
+                            <button
+                              key={f.key}
+                              onClick={() => setApprovalFilter(f.key === approvalFilter ? 'all' : f.key)}
+                              className={classNames(
+                                'flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition cursor-pointer border',
+                                f.active ? `${f.color} border-current/20` : 'bg-white text-gray-400 border-gray-200 hover:border-gray-300'
+                              )}>
+                              {f.dot && <span>{f.dot}</span>}
+                              <span className="font-bold">{f.count}</span>
+                              <span className={f.active ? '' : 'text-gray-400'}>{f.label}</span>
+                            </button>
+                          ))}
                           <span className="text-xs text-gray-400 ml-auto">
                             审批人: {selectedModule.approver?.name || '未指定'}
                           </span>
@@ -688,7 +681,13 @@ export default function ChangeDetailPage() {
                           </tr>
                         </thead>
                         <tbody className="divide-y text-sm">
-                          {selectedModule.items.map((item: any) => {
+                          {selectedModule.items.filter((item: any) => {
+                            if (approvalFilter === 'done') return item.status === 'DONE' || item.status === 'done'
+                            if (approvalFilter === 'na') return item.status === 'NOT_APPLICABLE' || item.status === 'not_applicable'
+                            if (approvalFilter === 'rejected') return item.status === 'REJECTED' || item.status === 'rejected'
+                            if (approvalFilter === 'pending') return item.status !== 'DONE' && item.status !== 'done' && item.status !== 'NOT_APPLICABLE' && item.status !== 'not_applicable' && item.status !== 'REJECTED' && item.status !== 'rejected'
+                            return true
+                          }).map((item: any) => {
                             const isDone = item.status === 'DONE' || item.status === 'done'
                             const isNA = item.status === 'NOT_APPLICABLE' || item.status === 'not_applicable'
                             const isRejected = item.status === 'REJECTED' || item.status === 'rejected'
@@ -705,7 +704,7 @@ export default function ChangeDetailPage() {
                                     isDone ? 'bg-green-500 text-white' : isNA ? 'bg-gray-400 text-white' :
                                     isRejected ? 'bg-red-500 text-white' : 'bg-amber-500 text-white'
                                   )}>
-                                    {isDone ? '✓' : isNA ? 'N' : isRejected ? '!' : idx + 1}
+                                    {isDone ? '✓' : isNA ? 'N' : isRejected ? '!' : item.sortOrder}
                                   </span>
                                 </td>
                                 <td className="px-2 py-2.5">
