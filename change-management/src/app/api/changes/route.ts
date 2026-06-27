@@ -71,6 +71,18 @@ export async function POST(req: NextRequest) {
     },
   })
 
+  // Fetch product assignments to find responsible people per department
+  let defaultExecutors: Record<string, string> = {}
+  if (productId) {
+    const assignments = await prisma.productAssignment.findMany({
+      where: { productId },
+      select: { moduleId: true, person: true },
+    })
+    for (const a of assignments) {
+      defaultExecutors[a.moduleId] = a.person
+    }
+  }
+
   // For each selected module, find its template and instantiate checklist items
   for (const moduleId of moduleIds || []) {
     const template = await prisma.checklistTemplate.findFirst({

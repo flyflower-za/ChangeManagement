@@ -8,6 +8,7 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ id:
     where: { id },
     include: {
       initiator: true,
+      product: { include: { assignments: { include: { module: { select: { id: true, name: true } } } } } },
       modules: {
         include: {
           module: true,

@@ -35,6 +35,7 @@ type ChangeDetail = {
   description: string | null
   priority: string
   status: string
+  product?: { name: string; assignments?: Array<{ moduleId: string; person: string; module: { id: string; name: string } }> } | null
   plannedStart: string | null
   plannedEnd: string | null
   createdAt: string
@@ -207,6 +208,11 @@ export default function ChangeDetailPage() {
               <span className={classNames('inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium border', p.color)}>
                 <span className={classNames('w-1.5 h-1.5 rounded-full', p.dot)} />{p.label}
               </span>
+              {change.product && (
+                <span className="px-2 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-700">
+                  📦 {change.product.name}
+                </span>
+              )}
               <span className={classNames('px-2 py-0.5 rounded-full text-xs font-medium', s.color)}>{s.label}</span>
             </div>
             <h1 className="text-2xl font-bold text-gray-900">{change.title}</h1>
@@ -436,6 +442,10 @@ export default function ChangeDetailPage() {
                           const isDone = item.status === 'DONE' || item.status === 'done'
                           const isNA = item.status === 'NOT_APPLICABLE' || item.status === 'not_applicable'
                           const isRejected = item.status === 'REJECTED' || item.status === 'rejected'
+                          // Get product-assigned person for this department
+                          const prodPerson = change.product?.assignments?.find(
+                            (a: any) => a.moduleId === selectedModule.moduleId
+                          )?.person
                           return (
                             <div key={item.id} className={classNames(
                               'flex items-center gap-3 px-4 py-2.5 rounded-lg text-sm',
@@ -461,9 +471,9 @@ export default function ChangeDetailPage() {
                               </span>
                               <span className={classNames(
                                 'text-xs flex-shrink-0',
-                                item.executorId ? 'text-blue-600' : 'text-gray-400'
+                                item.executor?.name ? 'text-blue-600' : (prodPerson ? 'text-green-600' : 'text-gray-400')
                               )}>
-                                {item.executor?.name || '未分配'}
+                                {item.executor?.name || prodPerson || '未分配'}
                               </span>
                             </div>
                           )
