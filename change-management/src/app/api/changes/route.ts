@@ -6,10 +6,13 @@ export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url)
   const status = searchParams.get('status')
 
+  const statusFilter = status && status !== 'all' ? status.toUpperCase() : undefined
+
   const changes = await prisma.changeProject.findMany({
-    where: status && status !== 'all' ? { status } : {},
+    where: statusFilter ? { status: statusFilter as any } : {},
     include: {
       initiator: true,
+      product: true,
       modules: {
         include: {
           module: true,
@@ -25,14 +28,15 @@ export async function GET(req: NextRequest) {
     ...c,
     progress: {
       total: c.modules.reduce((sum, m) => sum + m.items.length, 0),
-      done: c.modules.reduce((sum, m) => sum + m.items.filter(i => i.status === 'done').length, 0),
+      done: c.modules.reduce((sum, m) => sum + m.items.filter(i => (i.status === 'DONE' || i.status === 'done')).length, 0),
     },
     moduleProgress: c.modules.map(m => ({
       id: m.id,
       name: m.module.name,
       status: m.status,
+      approverId: m.approverId,
       total: m.items.length,
-      done: m.items.filter(i => i.status === 'done').length,
+      done: m.items.filter(i => (i.status === 'DONE' || i.status === 'done')).length,
     })),
   }))
 
@@ -46,7 +50,7 @@ export async function POST(req: NextRequest) {
   }
 
   const body = await req.json()
-  const { title, description, priority, plannedStart, plannedEnd, moduleIds } = body
+  const { title, description, priority, plannedStart, plannedEnd, moduleIds, productId } = body
 
   // Create the change project
   const change = await prisma.changeProject.create({
@@ -54,6 +58,7 @@ export async function POST(req: NextRequest) {
       title,
       description,
       priority: priority || 'medium',
+      productId: productId || null,
       status: 'PENDING',
       plannedStart: plannedStart ? new Date(plannedStart) : null,
       plannedEnd: plannedEnd ? new Date(plannedEnd) : null,

@@ -47,7 +47,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
       where: { id: item.changeModuleId },
       include: { items: true },
     })
-    if (changeModule && changeModule.items.every(i => i.status === 'DONE')) {
+    if (changeModule && changeModule.items.every(i => i.status === 'DONE' || i.status === 'NOT_APPLICABLE')) {
       await prisma.changeModule.update({
         where: { id: changeModule.id },
         data: { status: 'REVIEWING' },
@@ -127,6 +127,41 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
     return NextResponse.json({ ok: true })
   }
 
+  if (action === 'not_applicable') {
+    const item = await prisma.checklistItem.update({
+      where: { id: body.itemId },
+      data: {
+        status: 'NOT_APPLICABLE',
+        executedAt: new Date(),
+        evidenceNotes: body.evidenceNotes || '该检查项不适用于本次变更',
+        executorId: user.id,
+      },
+    })
+
+    // Check if all items in the module are done (or N/A)
+    const changeModule = await prisma.changeModule.findUnique({
+      where: { id: item.changeModuleId },
+      include: { items: true },
+    })
+    if (changeModule && changeModule.items.every(i => i.status === 'DONE' || i.status === 'NOT_APPLICABLE')) {
+      await prisma.changeModule.update({
+        where: { id: changeModule.id },
+        data: { status: 'REVIEWING' },
+      })
+      const change = await prisma.changeProject.findUnique({
+        where: { id },
+        include: { modules: true },
+      })
+      if (change && change.modules.every(m => m.status === 'REVIEWING' || m.status === 'APPROVED')) {
+        await prisma.changeProject.update({
+          where: { id },
+          data: { status: 'APPROVING' },
+        })
+      }
+    }
+    return NextResponse.json(item)
+  }
+
   if (action === 'assign_executor') {
     const item = await prisma.checklistItem.update({
       where: { id: body.itemId },
@@ -136,4 +171,45 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
   }
 
   return NextResponse.json({ error: 'Unknown action' }, { status: 400 })
+}
+
+// Delete or archive change project
+export async function DELETE(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+  const user = await getCurrentUser()
+  if (!user) return NextResponse.json({ error: '请先登录' }, { status: 401 })
+
+  const { id } = await params
+  const { searchParams } = new URL(req.url)
+  const action = searchParams.get('action')
+
+  const change = await prisma.changeProject.findUnique({
+    where: { id },
+    include: { modules: true },
+  })
+
+  if (!change) return NextResponse.json({ error: '变更项目不存在' }, { status: 404 })
+
+  // Check if user is admin or initiator
+  if (user.role !== 'admin' && change.createdById !== user.id) {
+    return NextResponse.json({ error: '只有管理员或发起人可以删除/归档此变更' }, { status: 403 })
+  }
+
+  if (action === 'archive') {
+    // Archive the change (set status to CANCELLED)
+    await prisma.changeProject.update({
+      where: { id },
+      data: {
+        status: 'CANCELLED',
+        cancelledAt: new Date(),
+      },
+    })
+    return NextResponse.json({ ok: true, message: '已归档' })
+  }
+
+  // Delete the change (hard delete)
+  await prisma.changeProject.delete({
+    where: { id },
+  })
+
+  return NextResponse.json({ ok: true, message: '已删除' })
 }

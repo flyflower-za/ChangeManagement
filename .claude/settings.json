@@ -32,12 +32,25 @@
       "Bash(pkill -f \"next dev\")",
       "Bash(npx next *)",
       "Bash(timeout 30 npx next build)",
-      "Bash(npx tsc *)"
+      "Bash(npx tsc *)",
+      "Bash(sqlite3 prisma/dev.db \"SELECT id, name, description FROM Module LIMIT 10;\")",
+      "Bash(sqlite3 prisma/dev.db \"SELECT m.name AS department, COUNT\\(cid.id\\) AS item_count FROM Module m LEFT JOIN checklist_templates ct ON ct.moduleId = m.id LEFT JOIN checklist_item_defs cid ON cid.templateId = ct.id WHERE m.name IN \\('工艺部门', '设备部门', '质量部门'\\) GROUP BY m.name;\")",
+      "Bash(sqlite3 /Users/zhouao/Documents/GitHub/ChangeManagement/change-management/prisma/dev.db \"SELECT m.name AS department, ct.name AS template_name FROM Module m LEFT JOIN checklist_templates ct ON ct.moduleId = m.id;\")",
+      "Bash(sqlite3 /Users/zhouao/Documents/GitHub/ChangeManagement/change-management/prisma/dev.db \"UPDATE checklist_templates SET name = '设备部门变更检查清单' WHERE moduleId = \\(SELECT id FROM Module WHERE name = '设备部门'\\); UPDATE checklist_templates SET name = '工艺部门变更检查清单' WHERE moduleId = \\(SELECT id FROM Module WHERE name = '工艺部门'\\); UPDATE checklist_templates SET name = '质量部门变更检查清单' WHERE moduleId = \\(SELECT id FROM Module WHERE name = '质量部门'\\); SELECT m.name AS department, ct.name AS template_name FROM Module m LEFT JOIN checklist_templates ct ON ct.moduleId = m.id;\")",
+      "Bash(mkdir -p /Users/zhouao/Documents/GitHub/ChangeManagement/change-management/src/app/users/\\\\[id\\\\]/edit)",
+      "Bash(./node_modules/.bin/prisma generate *)",
+      "Bash(./node_modules/.bin/prisma db *)",
+      "Bash(change-management/node_modules/.bin/prisma generate *)",
+      "Bash(change-management/node_modules/.bin/prisma db *)",
+      "Bash(node_modules/.bin/prisma generate *)",
+      "Bash(node_modules/.bin/prisma db *)",
+      "Bash(kill 35308)"
     ],
     "additionalDirectories": [
       "/Users/zhouao/Documents/GitHub/ChangeManagement/change-management/src/app/api/modules",
       "/Users/zhouao/Documents/GitHub/ChangeManagement/change-management/src/app/modules/[id]",
-      "/Users/zhouao/.claude/projects/-Users-zhouao-Documents-GitHub-ChangeManagement"
+      "/Users/zhouao/.claude/projects/-Users-zhouao-Documents-GitHub-ChangeManagement",
+      "/Users/zhouao/Documents/GitHub/ChangeManagement/change-management/src/app/users/[id]"
     ]
   }
 }

@@ -40,6 +40,7 @@ export function statusConfig(status: string) {
     // ChecklistItem 状态
     case 'IN_PROGRESS': return { label: '进行中', color: 'bg-amber-100 text-amber-700' }
     case 'DONE': return { label: '已完成', color: 'bg-green-100 text-green-700' }
+    case 'NOT_APPLICABLE': return { label: '不涉及', color: 'bg-gray-300 text-gray-600' }
     // 兼容旧状态
     case 'draft': return { label: '草稿', color: 'bg-gray-100 text-gray-600' }
     case 'active': return { label: '待执行', color: 'bg-blue-100 text-blue-700' }
@@ -50,6 +51,7 @@ export function statusConfig(status: string) {
     case 'pending': return { label: '待执行', color: 'bg-gray-100 text-gray-600' }
     case 'in_progress': return { label: '进行中', color: 'bg-amber-100 text-amber-700' }
     case 'done': return { label: '已完成', color: 'bg-green-100 text-green-700' }
+    case 'not_applicable': return { label: '不涉及', color: 'bg-gray-300 text-gray-600' }
     case 'approved': return { label: '已通过', color: 'bg-green-100 text-green-700' }
     default: return { label: status, color: 'bg-gray-100 text-gray-600' }
   }

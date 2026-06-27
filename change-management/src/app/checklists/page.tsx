@@ -42,7 +42,7 @@ export default function ChecklistsPage() {
 
   return (
     <div className="space-y-6">
-      <h1 className="text-2xl font-bold">Checklist 管理</h1>
+      <h1 className="text-2xl font-bold">模版管理</h1>
 
       <div className="flex gap-6">
         {/* Module List */}
@@ -101,6 +101,7 @@ function ChecklistEditor({ module, users, onSave }: { module: any; users: any[];
   const template = module.templates[0]
   const [items, setItems] = useState<any[]>(template?.items || [])
   const [dirty, setDirty] = useState(false)
+  const [editMode, setEditMode] = useState(false)
 
   useEffect(() => {
     setItems(template?.items || [])
@@ -113,7 +114,7 @@ function ChecklistEditor({ module, users, onSave }: { module: any; users: any[];
       description: '',
       expectedResult: '',
       evidenceType: 'text',
-      isRequired: true,
+      isRequired: true, // 默认为true，但UI中不显示选项
       defaultExecutorId: null,
       sortOrder: items.length + 1,
     }])
@@ -132,11 +133,13 @@ function ChecklistEditor({ module, users, onSave }: { module: any; users: any[];
     setDirty(true)
   }
 
-  const moveItem = (idx: number, dir: -1 | 1) => {
-    const newIdx = idx + dir
-    if (newIdx < 0 || newIdx >= items.length) return
+  const setItemOrder = (itemIdx: number, newOrder: number) => {
+    if (newOrder < 1 || newOrder > items.length) return
+    if (newOrder === itemIdx + 1) return // No change needed
+
     const newItems = [...items]
-    ;[newItems[idx], newItems[newIdx]] = [newItems[newIdx], newItems[idx]]
+    const [movedItem] = newItems.splice(itemIdx, 1)
+    newItems.splice(newOrder - 1, 0, movedItem)
     newItems.forEach((it, i) => it.sortOrder = i + 1)
     setItems(newItems)
     setDirty(true)
@@ -151,70 +154,158 @@ function ChecklistEditor({ module, users, onSave }: { module: any; users: any[];
             {template ? '编辑检查项模板' : '尚无模板，点击添加创建'}
           </p>
         </div>
-        <button
-          onClick={() => onSave(items)}
-          disabled={!dirty}
-          className="px-4 py-2 bg-gray-900 text-white rounded-lg text-sm font-medium hover:bg-gray-800 transition disabled:opacity-30"
-        >
-          保存
-        </button>
+        <div className="flex items-center gap-2">
+          {dirty && !editMode && (
+            <span className="text-xs text-amber-600">有未保存的修改</span>
+          )}
+          {editMode ? (
+            <button
+              onClick={() => { onSave(items); setEditMode(false); }}
+              className="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-500 transition"
+            >
+              ✓ 保存并完成
+            </button>
+          ) : (
+            <button
+              onClick={() => setEditMode(true)}
+              className="px-4 py-2 bg-gray-100 text-gray-700 rounded-lg text-sm font-medium hover:bg-gray-200 transition"
+            >
+              ✏️ 编辑
+            </button>
+          )}
+        </div>
       </div>
 
-      <div className="divide-y">
-        {items.map((item, idx) => (
-          <div key={idx} className="px-5 py-4 hover:bg-gray-50/50">
-            <div className="flex items-start gap-3">
-              <span className="text-gray-300 font-medium mt-1.5">{idx + 1}</span>
-              <div className="flex-1 space-y-2">
-                <input
-                  value={item.title}
-                  onChange={e => updateItem(idx, 'title', e.target.value)}
-                  className="w-full font-medium px-3 py-1.5 rounded-lg border border-transparent hover:border-gray-200 focus:border-blue-400 focus:ring-1 focus:ring-blue-400 outline-none transition"
-                  placeholder="检查项标题"
-                />
-                <input
-                  value={item.description || ''}
-                  onChange={e => updateItem(idx, 'description', e.target.value)}
-                  className="w-full text-sm text-gray-500 px-3 py-1.5 rounded-lg border border-transparent hover:border-gray-200 focus:border-blue-400 focus:ring-1 focus:ring-blue-400 outline-none transition"
-                  placeholder="详细描述"
-                />
-                <div className="flex items-center gap-3 text-xs">
-                  <select
-                    value={item.evidenceType}
-                    onChange={e => updateItem(idx, 'evidenceType', e.target.value)}
-                    className="px-2 py-1 rounded border border-gray-200"
-                  >
-                    <option value="text">文字说明</option>
-                    <option value="screenshot">截图</option>
-                    <option value="log">日志</option>
-                    <option value="config">配置文件</option>
-                  </select>
-                  <label className="flex items-center gap-1">
-                    <input type="checkbox" checked={item.isRequired} onChange={e => updateItem(idx, 'isRequired', e.target.checked)} className="w-3.5 h-3.5 rounded" />
-                    必填
-                  </label>
-                  <select
-                    value={item.defaultExecutorId || ''}
-                    onChange={e => updateItem(idx, 'defaultExecutorId', e.target.value)}
-                    className="px-2 py-1 rounded border border-gray-200"
-                  >
-                    <option value="">默认执行人</option>
-                    {users.map(u => <option key={u.id} value={u.id}>{u.name}</option>)}
-                  </select>
-                </div>
-              </div>
-              <div className="flex flex-col gap-1">
-                <button onClick={() => moveItem(idx, -1)} className="text-gray-300 hover:text-gray-600 text-sm">▲</button>
-                <button onClick={() => moveItem(idx, 1)} className="text-gray-300 hover:text-gray-600 text-sm">▼</button>
-                <button onClick={() => removeItem(idx)} className="text-gray-300 hover:text-red-500 text-sm">✕</button>
-              </div>
-            </div>
-          </div>
-        ))}
+      {/* Table */}
+      <div className="overflow-x-auto">
+        <table className="w-full">
+          <thead>
+            <tr className="bg-gray-50 border-b text-xs font-medium text-gray-500">
+              <th className="px-3 py-3 text-center whitespace-nowrap" style={{ width: '70px' }}>序号</th>
+              <th className="px-3 py-3 text-left" style={{ width: 'auto' }}>检查项标题</th>
+              <th className="px-3 py-3 text-left" style={{ width: 'auto' }}>详细描述</th>
+              <th className="px-3 py-3 text-left whitespace-nowrap" style={{ width: '90px' }}>证据类型</th>
+              <th className="px-3 py-3 text-left whitespace-nowrap" style={{ width: '130px' }}>默认执行人</th>
+              <th className="px-3 py-3 text-center whitespace-nowrap" style={{ width: '50px' }}>操作</th>
+            </tr>
+          </thead>
+          <tbody className="divide-y">
+            {items.map((item, idx) => (
+              <tr key={idx} className={editMode ? 'hover:bg-gray-50/50' : ''}>
+                {/* Order */}
+                <td className="px-3 py-3 text-center">
+                  {editMode ? (
+                    <select
+                      value={idx + 1}
+                      onChange={e => setItemOrder(idx, parseInt(e.target.value))}
+                      className="text-center text-sm font-medium text-gray-600 bg-gray-50 border border-gray-200 rounded px-1 py-1 focus:border-blue-400 focus:ring-1 focus:ring-blue-400 outline-none cursor-pointer hover:bg-gray-100 transition"
+                      style={{ width: '52px' }}
+                    >
+                      {items.map((_, i) => (
+                        <option key={i} value={i + 1}>{i + 1}</option>
+                      ))}
+                    </select>
+                  ) : (
+                    <span className="text-sm font-medium text-gray-600">{idx + 1}</span>
+                  )}
+                </td>
+
+                {/* Title */}
+                <td className="px-3 py-3">
+                  {editMode ? (
+                    <input
+                      value={item.title}
+                      onChange={e => updateItem(idx, 'title', e.target.value)}
+                      className="w-full text-sm font-medium px-3 py-2 rounded-lg border border-transparent hover:border-gray-200 focus:border-blue-400 focus:ring-1 focus:ring-blue-400 outline-none transition"
+                      placeholder="检查项标题"
+                    />
+                  ) : (
+                    <div className="text-sm font-medium text-gray-800 py-1">{item.title}</div>
+                  )}
+                </td>
+
+                {/* Description */}
+                <td className="px-3 py-3">
+                  {editMode ? (
+                    <textarea
+                      value={item.description || ''}
+                      onChange={e => updateItem(idx, 'description', e.target.value)}
+                      rows={2}
+                      className="w-full text-sm text-gray-500 px-3 py-2 rounded-lg border border-transparent hover:border-gray-200 focus:border-blue-400 focus:ring-1 focus:ring-blue-400 outline-none transition resize-y"
+                      placeholder="详细描述"
+                    />
+                  ) : (
+                    <div className="text-sm text-gray-500 py-1">{item.description || '-'}</div>
+                  )}
+                </td>
+
+                {/* Evidence Type */}
+                <td className="px-3 py-3">
+                  {editMode ? (
+                    <select
+                      value={item.evidenceType}
+                      onChange={e => updateItem(idx, 'evidenceType', e.target.value)}
+                      className="w-full text-xs px-2 py-2 rounded border border-gray-200 focus:border-blue-400 outline-none"
+                    >
+                      <option value="text">文字</option>
+                      <option value="screenshot">截图</option>
+                      <option value="log">日志</option>
+                      <option value="config">配置</option>
+                    </select>
+                  ) : (
+                    <span className="text-xs text-gray-600">
+                      {item.evidenceType === 'text' ? '文字' :
+                       item.evidenceType === 'screenshot' ? '截图' :
+                       item.evidenceType === 'log' ? '日志' : '配置'}
+                    </span>
+                  )}
+                </td>
+
+                {/* Default Executor */}
+                <td className="px-3 py-3">
+                  {editMode ? (
+                    <select
+                      value={item.defaultExecutorId || ''}
+                      onChange={e => updateItem(idx, 'defaultExecutorId', e.target.value)}
+                      className="w-full text-xs px-2 py-2 rounded border border-gray-200 focus:border-blue-400 outline-none"
+                    >
+                      <option value="">默认执行人</option>
+                      {users.map(u => <option key={u.id} value={u.id}>{u.name}</option>)}
+                    </select>
+                  ) : (
+                    <span className="text-xs text-gray-600">
+                      {users.find(u => u.id === item.defaultExecutorId)?.name || '未分配'}
+                    </span>
+                  )}
+                </td>
+
+                {/* Actions */}
+                <td className="px-3 py-3 text-center">
+                  {editMode ? (
+                    <button
+                      onClick={() => removeItem(idx)}
+                      className="text-gray-300 hover:text-red-500 text-sm transition"
+                      title="删除"
+                    >
+                      ✕
+                    </button>
+                  ) : (
+                    <span className="text-xs text-gray-400">-</span>
+                  )}
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
       </div>
 
+      {/* Add Button */}
       <div className="px-5 py-4 border-t">
-        <button onClick={addItem} className="text-sm text-blue-600 hover:underline">+ 添加检查项</button>
+        {editMode ? (
+          <button onClick={addItem} className="text-sm text-blue-600 hover:underline">+ 添加检查项</button>
+        ) : (
+          <div className="text-sm text-gray-400">点击右上角"编辑"按钮修改模版</div>
+        )}
       </div>
     </div>
   )

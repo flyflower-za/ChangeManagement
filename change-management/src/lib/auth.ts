@@ -1,5 +1,6 @@
 import { cookies } from 'next/headers'
 import { getIronSession, type SessionOptions } from 'iron-session'
+import { prisma } from '@/lib/db'
 
 export type SessionUser = {
   id: string
@@ -24,24 +25,21 @@ export async function getAppSession() {
 }
 
 export async function getCurrentUser(): Promise<SessionUser | null> {
-  // MVP: 无需认证，返回默认用户
-  // 如果需要真实的 session 检查，取消下面的注释
-  // const session = await getAppSession()
-  // if (session.id && session.name) {
-  //   return {
-  //     id: session.id,
-  //     name: session.name,
-  //     email: session.email,
-  //     role: session.role,
-  //   }
-  // }
-  // return null
+  // MVP: 返回真实的admin用户（从数据库获取）
+  const admin = await prisma.user.findUnique({
+    where: { email: 'admin@company.com' },
+    select: { id: true, name: true, email: true, role: true }
+  })
 
-  // MVP: 返回默认管理员用户
-  return {
-    id: 'mvp-admin',
-    name: 'MVP 管理员',
-    email: 'mvp@example.com',
-    role: 'admin',
+  if (admin) {
+    return {
+      id: admin.id,
+      name: admin.name,
+      email: admin.email,
+      role: admin.role,
+    }
   }
+
+  // Fallback: 如果数据库中没有admin用户，返回null
+  return null
 }

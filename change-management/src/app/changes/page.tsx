@@ -11,6 +11,7 @@ type Change = {
   status: string
   priority: string
   createdAt: string
+  createdById?: string
   initiator: { name: string }
   modules: any[]
   progress?: { total: number; done: number }
@@ -21,13 +22,67 @@ export default function ChangesPage() {
   const [changes, setChanges] = useState<Change[]>([])
   const [filter, setFilter] = useState('all')
   const [loading, setLoading] = useState(true)
+  const [currentUser, setCurrentUser] = useState<any>(null)
+  const [actionLoading, setActionLoading] = useState<string | null>(null)
 
   useEffect(() => {
-    fetch(`/api/changes?status=${filter}`).then(r => r.json()).then(d => {
-      setChanges(d)
+    Promise.all([
+      fetch(`/api/changes?status=${filter}`).then(r => r.json()),
+      fetch('/api/me').then(r => r.json())
+    ]).then(([changesData, userData]) => {
+      setChanges(changesData)
+      setCurrentUser(userData)
       setLoading(false)
     })
   }, [filter])
+
+  const handleDelete = async (e: React.MouseEvent, changeId: string) => {
+    e.preventDefault()
+    e.stopPropagation()
+
+    if (!confirm('确定要删除此变更项目吗？此操作不可恢复。')) return
+
+    setActionLoading(changeId)
+    try {
+      const res = await fetch(`/api/changes/${changeId}`, { method: 'DELETE' })
+      if (res.ok) {
+        setChanges(changes.filter(c => c.id !== changeId))
+      } else {
+        const data = await res.json()
+        alert(data.error || '删除失败')
+      }
+    } catch (err) {
+      alert('删除失败')
+    } finally {
+      setActionLoading(null)
+    }
+  }
+
+  const handleArchive = async (e: React.MouseEvent, changeId: string) => {
+    e.preventDefault()
+    e.stopPropagation()
+
+    if (!confirm('确定要归档此变更项目吗？归档后将无法继续执行。')) return
+
+    setActionLoading(changeId)
+    try {
+      const res = await fetch(`/api/changes/${changeId}?action=archive`, { method: 'DELETE' })
+      if (res.ok) {
+        setChanges(changes.filter(c => c.id !== changeId))
+      } else {
+        const data = await res.json()
+        alert(data.error || '归档失败')
+      }
+    } catch (err) {
+      alert('归档失败')
+    } finally {
+      setActionLoading(null)
+    }
+  }
+
+  const canModify = (change: Change) => {
+    return currentUser?.role === 'admin' || change.createdById === currentUser?.id
+  }
 
   const tabs = [
     { key: 'all', label: '全部' },
@@ -39,7 +94,12 @@ export default function ChangesPage() {
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-bold">变更项目</h1>
+        <div>
+          <h1 className="text-2xl font-bold">变更项目</h1>
+          <p className="text-sm text-gray-500 mt-1">
+            管理和跟踪所有变更项目
+          </p>
+        </div>
         <Link href="/changes/new" className="px-4 py-2 bg-gray-900 text-white rounded-lg text-sm font-medium hover:bg-gray-800 transition">
           + 创建变更
         </Link>
@@ -73,10 +133,12 @@ export default function ChangesPage() {
             const p = priorityConfig(c.priority)
             const s = statusConfig(c.status)
             const pct = c.progress?.total ? Math.round((c.progress.done / c.progress.total) * 100) : 0
+            const modifyAllowed = canModify(c)
             return (
-              <Link key={c.id} href={`/changes/${c.id}`} className="block bg-white rounded-xl border p-5 hover:shadow-md transition">
-                <div className="flex items-start justify-between">
-                  <div className="flex-1">
+              <div key={c.id} className="bg-white rounded-xl border p-5 hover:shadow-md transition">
+                <div className="flex items-start justify-between gap-4">
+                  {/* Left: Main Content */}
+                  <Link href={`/changes/${c.id}`} className="flex-1 min-w-0">
                     <div className="flex items-center gap-2 mb-1.5">
                       <span className={classNames('inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium border', p.color)}>
                         <span className={classNames('w-1.5 h-1.5 rounded-full', p.dot)} />{p.label}
@@ -84,20 +146,27 @@ export default function ChangesPage() {
                       <span className={classNames('px-2 py-0.5 rounded-full text-xs font-medium', s.color)}>{s.label}</span>
                     </div>
                     <h3 className="font-medium text-gray-900">{c.title}</h3>
-                    <p className="text-sm text-gray-500 mt-1">{c.description}</p>
+                    <p className="text-sm text-gray-500 mt-1 line-clamp-2">{c.description}</p>
                     <p className="text-xs text-gray-400 mt-2">发起人: {c.initiator?.name} · {new Date(c.createdAt).toLocaleString('zh-CN')}</p>
-                  </div>
-                  <div className="text-right ml-4">
-                    <div className="flex items-center gap-2">
-                      <div className="w-28 h-2 bg-gray-100 rounded-full overflow-hidden">
-                        <div className="h-full bg-blue-500 rounded-full transition-all" style={{ width: `${pct}%` }} />
+
+                    {/* Progress Bar - Left Aligned */}
+                    <div className="mt-3 pt-3 border-t">
+                      <div className="flex items-center gap-3">
+                        <span className="text-xs text-gray-500 whitespace-nowrap">
+                          进度 {c.progress?.done || 0}/{c.progress?.total || 0}
+                        </span>
+                        <div className="flex-1 h-2 bg-gray-100 rounded-full overflow-hidden">
+                          <div className="h-full bg-blue-500 rounded-full transition-all" style={{ width: `${pct}%` }} />
+                        </div>
+                        <span className="text-sm font-medium text-gray-600 whitespace-nowrap">{pct}%</span>
                       </div>
-                      <span className="text-sm font-medium text-gray-600">{pct}%</span>
                     </div>
-                    <div className="flex gap-2 mt-1.5 justify-end">
+
+                    {/* Module Tags */}
+                    <div className="flex flex-wrap gap-1.5 mt-2">
                       {c.moduleProgress?.map((mp: any) => (
                         <span key={mp.id} className={classNames(
-                          'text-xs px-1.5 py-0.5 rounded',
+                          'text-xs px-2 py-0.5 rounded-full',
                           mp.status === 'approved' ? 'text-green-600 bg-green-50' :
                           mp.status === 'reviewing' ? 'text-purple-600 bg-purple-50' :
                           mp.status === 'executing' ? 'text-amber-600 bg-amber-50' :
@@ -107,9 +176,31 @@ export default function ChangesPage() {
                         </span>
                       ))}
                     </div>
-                  </div>
+                  </Link>
+
+                  {/* Right: Action Buttons */}
+                  {modifyAllowed && (
+                    <div className="flex flex-col gap-2 flex-shrink-0 pt-1">
+                      <button
+                        onClick={(e) => handleArchive(e, c.id)}
+                        disabled={actionLoading === c.id}
+                        className="px-3 py-1.5 text-xs bg-amber-50 text-amber-600 rounded-lg hover:bg-amber-100 transition whitespace-nowrap"
+                        title="归档"
+                      >
+                        {actionLoading === c.id ? '处理中...' : '归档'}
+                      </button>
+                      <button
+                        onClick={(e) => handleDelete(e, c.id)}
+                        disabled={actionLoading === c.id}
+                        className="px-3 py-1.5 text-xs bg-red-50 text-red-600 rounded-lg hover:bg-red-100 transition whitespace-nowrap"
+                        title="删除"
+                      >
+                        {actionLoading === c.id ? '处理中...' : '删除'}
+                      </button>
+                    </div>
+                  )}
                 </div>
-              </Link>
+              </div>
             )
           })}
         </div>

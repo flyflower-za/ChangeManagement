@@ -7,12 +7,12 @@ import { classNames } from '@/lib/utils'
 
 const navItems = [
   { href: '/', label: '仪表盘', icon: '📊' },
-  { href: '/my-tasks', label: '我的待办', icon: '✅' },
   { href: '/changes', label: '变更项目', icon: '📋' },
-  { href: '/checklists', label: 'Checklist 管理', icon: '📝' },
-  { href: '/approvals', label: '审批中心', icon: '🔔' },
-  { href: '/modules', label: '模块管理', icon: '📦' },
+  { href: '/my-tasks', label: '我的待办', icon: '✅' },
   { href: '/history', label: '变更历史', icon: '📜' },
+  { href: '/approvals', label: '审批中心', icon: '🔔' },
+  { href: '/management', label: '管理中心', icon: '⚙️' },
+  { href: '/users', label: '用户管理', icon: '👥' },
 ]
 
 export default function AppShell({ children, user }: { children: React.ReactNode; user: any }) {

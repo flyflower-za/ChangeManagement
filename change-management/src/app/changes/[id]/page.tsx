@@ -53,6 +53,10 @@ export default function ChangeDetailPage() {
   const [selectedModuleId, setSelectedModuleId] = useState<string | null>(null)
   const [activeTab, setActiveTab] = useState<'overview' | 'execute' | 'approve' | 'history'>('overview')
   const [actionLoading, setActionLoading] = useState(false)
+  const [batchExecutor, setBatchExecutor] = useState('')
+  const [batchAssigning, setBatchAssigning] = useState(false)
+  const [editMode, setEditMode] = useState(false)
+  const [deleteLoading, setDeleteLoading] = useState(false)
 
   // Modal states
   const [showReject, setShowReject] = useState<string | null>(null) // changeModuleId
@@ -86,6 +90,17 @@ export default function ChangeDetailPage() {
     setActionLoading(false)
     setExecuting(null)
     setEvidenceNotes('')
+    loadChange()
+  }
+
+  const handleNotApplicable = async (itemId: string) => {
+    setActionLoading(true)
+    await fetch(`/api/changes/${id}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action: 'not_applicable', itemId, evidenceNotes: '不涉及' }),
+    })
+    setActionLoading(false)
     loadChange()
   }
 
@@ -129,6 +144,42 @@ export default function ChangeDetailPage() {
     loadChange()
   }
 
+  const handleDelete = async () => {
+    if (!confirm('确定要删除此变更项目吗？此操作不可恢复。')) return
+    setDeleteLoading(true)
+    try {
+      const res = await fetch(`/api/changes/${id}`, { method: 'DELETE' })
+      if (res.ok) {
+        router.push('/changes')
+      } else {
+        const data = await res.json()
+        alert(data.error || '删除失败')
+        setDeleteLoading(false)
+      }
+    } catch (err) {
+      alert('删除失败')
+      setDeleteLoading(false)
+    }
+  }
+
+  const handleArchive = async () => {
+    if (!confirm('确定要归档此变更项目吗？归档后将无法继续执行。')) return
+    setDeleteLoading(true)
+    try {
+      const res = await fetch(`/api/changes/${id}?action=archive`, { method: 'DELETE' })
+      if (res.ok) {
+        router.push('/changes')
+      } else {
+        const data = await res.json()
+        alert(data.error || '归档失败')
+        setDeleteLoading(false)
+      }
+    } catch (err) {
+      alert('归档失败')
+      setDeleteLoading(false)
+    }
+  }
+
   if (loading) return <div className="text-gray-400">加载中...</div>
   if (!change) return <div className="text-gray-400">变更不存在</div>
 
@@ -138,7 +189,7 @@ export default function ChangeDetailPage() {
 
   // 计算整体进度
   const totalItems = change.modules.reduce((sum, m) => sum + m.items.length, 0)
-  const doneItems = change.modules.reduce((sum, m) => sum + m.items.filter(i => i.status === 'DONE' || i.status === 'done').length, 0)
+  const doneItems = change.modules.reduce((sum, m) => sum + m.items.filter(i => i.status === 'DONE' || i.status === 'done' || i.status === 'NOT_APPLICABLE' || i.status === 'not_applicable').length, 0)
   const overallProgress = totalItems > 0 ? Math.round((doneItems / totalItems) * 100) : 0
 
   return (
@@ -160,6 +211,34 @@ export default function ChangeDetailPage() {
             </div>
             <h1 className="text-2xl font-bold text-gray-900">{change.title}</h1>
             {change.description && <p className="text-gray-600 mt-2">{change.description}</p>}
+          </div>
+          {/* Action Buttons */}
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => setEditMode(!editMode)}
+              className={classNames(
+                'px-4 py-2 rounded-lg text-sm font-medium transition',
+                editMode
+                  ? 'bg-blue-600 text-white hover:bg-blue-500'
+                  : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+              )}
+            >
+              {editMode ? '✓ 完成编辑' : '✏️ 编辑'}
+            </button>
+            <button
+              onClick={handleArchive}
+              disabled={deleteLoading}
+              className="px-4 py-2 rounded-lg text-sm font-medium bg-amber-50 text-amber-600 hover:bg-amber-100 transition disabled:opacity-50"
+            >
+              {deleteLoading ? '处理中...' : '归档'}
+            </button>
+            <button
+              onClick={handleDelete}
+              disabled={deleteLoading}
+              className="px-4 py-2 rounded-lg text-sm font-medium bg-red-50 text-red-600 hover:bg-red-100 transition disabled:opacity-50"
+            >
+              {deleteLoading ? '处理中...' : '删除'}
+            </button>
           </div>
         </div>
 
@@ -192,7 +271,7 @@ export default function ChangeDetailPage() {
             <div className="space-y-1">
               {change.modules.map((m: ChangeModule) => {
                 const mStatus = statusConfig(m.status)
-                const mDone = m.items.filter(i => i.status === 'DONE' || i.status === 'done').length
+                const mDone = m.items.filter(i => i.status === 'DONE' || i.status === 'done' || i.status === 'NOT_APPLICABLE' || i.status === 'not_applicable').length
                 const mTotal = m.items.length
                 const isReviewing = m.status === 'REVIEWING' || m.status === 'reviewing'
 
@@ -270,7 +349,7 @@ export default function ChangeDetailPage() {
               <div className="p-6">
                 {/* 概览 Tab */}
                 {activeTab === 'overview' && (
-                  <div className="space-y-4">
+                  <div className="space-y-6">
                     <div>
                       <h3 className="text-sm font-semibold text-gray-700 mb-2">模块信息</h3>
                       <div className="space-y-2 text-sm">
@@ -300,6 +379,97 @@ export default function ChangeDetailPage() {
                         </div>
                       </div>
                     </div>
+
+                    {/* Batch Executor Assignment */}
+                    {editMode && (
+                      <div className="bg-blue-50 rounded-lg p-4">
+                        <div className="flex items-center gap-3">
+                          <span className="text-sm font-medium text-blue-700 whitespace-nowrap">批量分配执行人：</span>
+                          <select
+                            className="px-3 py-1.5 rounded border border-blue-200 text-sm focus:ring-2 focus:ring-blue-500 outline-none"
+                            value={batchExecutor}
+                            onChange={async (e) => {
+                              const executorId = e.target.value
+                              if (!executorId) return
+                              const targetUser = users.find(u => u.id === executorId)
+                              if (!confirm(`确定要将${selectedModule.module.name}的所有${selectedModule.items.length}个检查项分配给${targetUser?.name}吗？`)) {
+                                setBatchExecutor('')
+                                return
+                              }
+                              setBatchAssigning(true)
+                              setBatchExecutor(executorId)
+                              for (const item of selectedModule.items) {
+                                const res = await fetch(`/api/changes/${id}`, {
+                                  method: 'PATCH',
+                                  headers: { 'Content-Type': 'application/json' },
+                                  body: JSON.stringify({ action: 'assign_executor', itemId: item.id, executorId }),
+                                })
+                                if (!res.ok) {
+                                  const err = await res.json()
+                                  alert(`分配失败: ${err.error || '未知错误'}`)
+                                  break
+                                }
+                              }
+                              setBatchExecutor('')
+                              setBatchAssigning(false)
+                              loadChange()
+                            }}
+                            disabled={batchAssigning}
+                          >
+                            <option value="">选择执行人...</option>
+                            {users.map(u => (
+                              <option key={u.id} value={u.id}>{u.name}</option>
+                            ))}
+                          </select>
+                          <span className="text-xs text-blue-500">
+                            {batchAssigning ? '分配中...' : '一键分配给当前部门所有检查项'}
+                          </span>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Checklist Items with Executor */}
+                    <div>
+                      <h3 className="text-sm font-semibold text-gray-700 mb-3">检查项及负责人</h3>
+                      <div className="space-y-1.5">
+                        {selectedModule.items.map((item, idx) => {
+                          const isDone = item.status === 'DONE' || item.status === 'done'
+                          const isNA = item.status === 'NOT_APPLICABLE' || item.status === 'not_applicable'
+                          const isRejected = item.status === 'REJECTED' || item.status === 'rejected'
+                          return (
+                            <div key={item.id} className={classNames(
+                              'flex items-center gap-3 px-4 py-2.5 rounded-lg text-sm',
+                              isDone ? 'bg-green-50' :
+                              isNA ? 'bg-gray-100' :
+                              isRejected ? 'bg-red-50' : 'bg-gray-50'
+                            )}>
+                              <span className={classNames(
+                                'w-5 h-5 rounded-full flex items-center justify-center text-xs flex-shrink-0',
+                                isDone ? 'bg-green-500 text-white' :
+                                isNA ? 'bg-gray-400 text-white' :
+                                isRejected ? 'bg-red-500 text-white' :
+                                'bg-gray-300 text-gray-500'
+                              )}>
+                                {isDone ? '✓' : isNA ? 'N' : isRejected ? '!' : idx + 1}
+                              </span>
+                              <span className={classNames(
+                                'flex-1',
+                                (isDone || isNA) && 'text-gray-500',
+                                isRejected && 'text-red-600'
+                              )}>
+                                {item.title}
+                              </span>
+                              <span className={classNames(
+                                'text-xs flex-shrink-0',
+                                item.executorId ? 'text-blue-600' : 'text-gray-400'
+                              )}>
+                                {item.executor?.name || '未分配'}
+                              </span>
+                            </div>
+                          )
+                        })}
+                      </div>
+                    </div>
                   </div>
                 )}
 
@@ -310,29 +480,33 @@ export default function ChangeDetailPage() {
                       const itemStatus = statusConfig(item.status)
                       const isDone = item.status === 'DONE' || item.status === 'done'
                       const isRejected = item.status === 'REJECTED' || item.status === 'rejected'
+                      const isNA = item.status === 'NOT_APPLICABLE' || item.status === 'not_applicable'
 
                       return (
                         <div key={item.id} className={classNames(
                           'border rounded-lg p-4',
-                          isRejected && 'border-red-200 bg-red-50/30'
+                          isRejected && 'border-red-200 bg-red-50/30',
+                          isNA && 'border-gray-300 bg-gray-50/50'
                         )}>
                           <div className="flex items-start gap-3">
                             <div className={classNames(
                               'mt-0.5 w-6 h-6 rounded-full flex items-center justify-center text-xs flex-shrink-0',
                               isDone ? 'bg-green-500 text-white' :
+                              isNA ? 'bg-gray-400 text-white' :
                               isRejected ? 'bg-red-500 text-white' :
                               'bg-gray-200 text-gray-500'
                             )}>
-                              {isDone ? '✓' : isRejected ? '!' : idx + 1}
+                              {isDone ? '✓' : isNA ? 'N' : isRejected ? '!' : idx + 1}
                             </div>
                             <div className="flex-1 min-w-0">
                               <div className="flex items-center gap-2 flex-wrap">
-                                <h4 className={classNames('font-medium', isDone && 'text-gray-500 line-through')}>
+                                <h4 className={classNames('font-medium', (isDone || isNA) && 'text-gray-500 line-through')}>
                                   {item.title}
                                 </h4>
                                 {item.isRequired && <span className="text-xs text-red-400">*必填</span>}
                                 <span className="text-xs text-gray-400">证据: {evidenceTypeLabel(item.evidenceType)}</span>
                                 {isRejected && <span className="text-xs text-red-500">需重做</span>}
+                                {isNA && <span className="text-xs text-gray-500">不涉及</span>}
                               </div>
                               {item.description && <p className="text-sm text-gray-500 mt-1">{item.description}</p>}
                               {item.expectedResult && <p className="text-xs text-gray-400 mt-0.5">预期: {item.expectedResult}</p>}
@@ -355,7 +529,7 @@ export default function ChangeDetailPage() {
                               )}
 
                               {/* 执行人分配 */}
-                              {!isDone && (
+                              {editMode && !isDone && !isNA && (
                                 <div className="mt-3 flex items-center gap-2 text-xs">
                                   <span className="text-gray-500">执行人:</span>
                                   <select
@@ -373,24 +547,40 @@ export default function ChangeDetailPage() {
                             </div>
 
                             {/* 操作按钮 */}
-                            <div className="flex-shrink-0">
-                              {!isDone && !isRejected && (
-                                <button
-                                  onClick={() => { setExecuting(item.id); setEvidenceNotes('') }}
-                                  className="px-3 py-1.5 bg-blue-600 text-white rounded-lg text-xs font-medium hover:bg-blue-500 transition"
-                                >
-                                  标记完成
-                                </button>
-                              )}
-                              {isRejected && (
-                                <button
-                                  onClick={() => { setExecuting(item.id); setEvidenceNotes('') }}
-                                  className="px-3 py-1.5 bg-amber-500 text-white rounded-lg text-xs font-medium hover:bg-amber-400 transition"
-                                >
-                                  重新执行
-                                </button>
-                              )}
-                            </div>
+                            {editMode && (
+                              <div className="flex-shrink-0 flex items-center gap-1.5">
+                                {!isDone && !isRejected && !isNA && (
+                                  <>
+                                    <button
+                                      onClick={() => { setExecuting(item.id); setEvidenceNotes('') }}
+                                      className="px-3 py-1.5 bg-blue-600 text-white rounded-lg text-xs font-medium hover:bg-blue-500 transition"
+                                    >
+                                      标记完成
+                                    </button>
+                                    <button
+                                      onClick={() => handleNotApplicable(item.id)}
+                                      disabled={actionLoading}
+                                      className="px-3 py-1.5 bg-gray-200 text-gray-600 rounded-lg text-xs font-medium hover:bg-gray-300 transition disabled:opacity-50"
+                                    >
+                                      不涉及
+                                    </button>
+                                  </>
+                                )}
+                                {isRejected && (
+                                  <button
+                                    onClick={() => { setExecuting(item.id); setEvidenceNotes('') }}
+                                    className="px-3 py-1.5 bg-amber-500 text-white rounded-lg text-xs font-medium hover:bg-amber-400 transition"
+                                  >
+                                    重新执行
+                                  </button>
+                                )}
+                              </div>
+                            )}
+                            {!editMode && (
+                              <div className="flex-shrink-0 text-xs text-gray-400">
+                                {isDone ? '已完成' : isNA ? '不涉及' : isRejected ? '需重做' : '待执行'}
+                              </div>
+                            )}
                           </div>
                         </div>
                       )
@@ -406,20 +596,23 @@ export default function ChangeDetailPage() {
                       <div className="space-y-2">
                         {selectedModule.items.map((item, idx) => {
                           const isDone = item.status === 'DONE' || item.status === 'done'
+                          const isNA = item.status === 'NOT_APPLICABLE' || item.status === 'not_applicable'
+                          const isCompleted = isDone || isNA
                           return (
                             <div key={item.id} className={classNames(
                               'flex items-center gap-3 p-3 rounded-lg',
-                              isDone ? 'bg-green-50' : 'bg-gray-50'
+                              isDone ? 'bg-green-50' : isNA ? 'bg-gray-100' : 'bg-gray-50'
                             )}>
                               <span className={classNames(
                                 'w-5 h-5 rounded-full flex items-center justify-center text-xs flex-shrink-0',
-                                isDone ? 'bg-green-500 text-white' : 'bg-gray-300 text-gray-500'
+                                isDone ? 'bg-green-500 text-white' : isNA ? 'bg-gray-400 text-white' : 'bg-gray-300 text-gray-500'
                               )}>
-                                {isDone ? '✓' : idx + 1}
+                                {isDone ? '✓' : isNA ? 'N' : idx + 1}
                               </span>
-                              <span className={classNames('text-sm', isDone ? 'text-gray-600' : 'text-gray-400')}>
+                              <span className={classNames('text-sm', isCompleted ? 'text-gray-600' : 'text-gray-400')}>
                                 {item.title}
                               </span>
+                              {isNA && <span className="text-xs text-gray-400">不涉及</span>}
                               {item.evidenceNotes && (
                                 <span className="text-xs text-gray-400 ml-auto">
                                   有证据
@@ -438,21 +631,27 @@ export default function ChangeDetailPage() {
                         rows={3}
                         placeholder="填写审批意见（可选）..."
                       />
-                      <div className="flex gap-3 mt-4">
-                        <button
-                          onClick={() => handleApprove(selectedModule.id!)}
-                          disabled={actionLoading}
-                          className="flex-1 py-2.5 bg-green-600 text-white rounded-lg font-medium hover:bg-green-500 transition disabled:opacity-50"
-                        >
-                          ✅ 审批通过
-                        </button>
-                        <button
-                          onClick={() => { setShowReject(selectedModule.id!); setRejectItemIds([]); setRejectReason('') }}
-                          className="px-6 py-2.5 border border-red-200 text-red-600 rounded-lg font-medium hover:bg-red-50 transition"
-                        >
-                          ❌ 驳回
-                        </button>
-                      </div>
+                      {editMode ? (
+                        <div className="flex gap-3 mt-4">
+                          <button
+                            onClick={() => handleApprove(selectedModule.id!)}
+                            disabled={actionLoading}
+                            className="flex-1 py-2.5 bg-green-600 text-white rounded-lg font-medium hover:bg-green-500 transition disabled:opacity-50"
+                          >
+                            ✅ 审批通过
+                          </button>
+                          <button
+                            onClick={() => { setShowReject(selectedModule.id!); setRejectItemIds([]); setRejectReason('') }}
+                            className="px-6 py-2.5 border border-red-200 text-red-600 rounded-lg font-medium hover:bg-red-50 transition"
+                          >
+                            ❌ 驳回
+                          </button>
+                        </div>
+                      ) : (
+                        <div className="mt-4 p-3 bg-gray-50 rounded-lg text-center text-sm text-gray-500">
+                          点击右上角"编辑"按钮进行审批操作
+                        </div>
+                      )}
                     </div>
                   </div>
                 )}
