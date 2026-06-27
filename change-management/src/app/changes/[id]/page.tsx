@@ -58,6 +58,8 @@ export default function ChangeDetailPage() {
   const [batchExecutor, setBatchExecutor] = useState('')
   const [batchAssigning, setBatchAssigning] = useState(false)
   const [approvalFilter, setApprovalFilter] = useState<string>('all') // all | done | na | rejected | pending
+  const [aiSummary, setAiSummary] = useState<string | null>(null)
+  const [aiLoading, setAiLoading] = useState(false)
   const [editMode, setEditMode] = useState(false)
   const [deleteLoading, setDeleteLoading] = useState(false)
 
@@ -321,7 +323,7 @@ export default function ChangeDetailPage() {
                 return (
                   <button
                     key={m.id}
-                    onClick={() => setSelectedModuleId(m.id)}
+                    onClick={() => { setSelectedModuleId(m.id); setAiSummary(null) }}
                     className={classNames(
                       'w-full text-left px-3 py-2.5 rounded-lg transition-colors',
                       selectedModuleId === m.id
@@ -654,12 +656,41 @@ export default function ChangeDetailPage() {
 
                   {/* Approval Actions Bar */}
                   {(selectedModule.status === 'REVIEWING' || selectedModule.status === 'reviewing') && editMode && (
-                    <div className="flex items-center gap-3 mt-3 p-3 bg-gray-50 rounded-lg">
-                      <textarea className="flex-1 px-3 py-1.5 rounded-lg border text-sm focus:ring-2 focus:ring-blue-500 outline-none" rows={1} placeholder="审批意见（可选）..." />
-                      <button onClick={() => handleApprove(selectedModule.id!)} disabled={actionLoading}
-                        className="px-5 py-1.5 bg-green-600 text-white rounded-lg text-sm font-medium hover:bg-green-500 disabled:opacity-50">✅ 通过</button>
-                      <button onClick={() => { setShowReject(selectedModule.id!); setRejectItemIds([]); setSingleRejectItemId(null); setRejectReason('') }}
-                        className="px-5 py-1.5 border border-red-200 text-red-600 rounded-lg text-sm font-medium hover:bg-red-50">❌ 驳回</button>
+                    <div className="space-y-3 mt-3">
+                      {/* AI Summary */}
+                      {aiSummary && (
+                        <div className="p-3 bg-purple-50 rounded-lg border border-purple-200">
+                          <div className="flex items-center justify-between mb-1">
+                            <span className="text-xs font-medium text-purple-700">🤖 AI 审批摘要</span>
+                            <button onClick={() => setAiSummary(null)} className="text-xs text-purple-400 hover:text-purple-600">✕</button>
+                          </div>
+                          <div className="text-sm text-purple-800 whitespace-pre-wrap">{aiSummary}</div>
+                        </div>
+                      )}
+
+                      <div className="flex items-center gap-3 p-3 bg-gray-50 rounded-lg">
+                        <button onClick={async () => {
+                          setAiLoading(true); setAiSummary(null)
+                          try {
+                            const res = await fetch('/api/ai-summary', {
+                              method: 'POST', headers: { 'Content-Type': 'application/json' },
+                              body: JSON.stringify({ changeModuleId: selectedModule.id }),
+                            })
+                            const d = await res.json()
+                            setAiSummary(d.error ? `❌ ${d.error}` : d.summary)
+                          } catch { setAiSummary('❌ 请求失败') }
+                          setAiLoading(false)
+                        }}
+                          disabled={aiLoading}
+                          className="px-3 py-1.5 text-xs font-medium bg-purple-100 text-purple-700 rounded-lg hover:bg-purple-200 transition disabled:opacity-50 whitespace-nowrap">
+                          {aiLoading ? '分析中...' : '🤖 AI摘要'}
+                        </button>
+                        <textarea className="flex-1 px-3 py-1.5 rounded-lg border text-sm focus:ring-2 focus:ring-blue-500 outline-none" rows={1} placeholder="审批意见（可选）..." />
+                        <button onClick={() => handleApprove(selectedModule.id!)} disabled={actionLoading}
+                          className="px-5 py-1.5 bg-green-600 text-white rounded-lg text-sm font-medium hover:bg-green-500 disabled:opacity-50">✅ 通过</button>
+                        <button onClick={() => { setShowReject(selectedModule.id!); setRejectItemIds([]); setSingleRejectItemId(null); setRejectReason('') }}
+                          className="px-5 py-1.5 border border-red-200 text-red-600 rounded-lg text-sm font-medium hover:bg-red-50">❌ 驳回</button>
+                      </div>
                     </div>
                   )}
 

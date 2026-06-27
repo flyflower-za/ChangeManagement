@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { classNames } from '@/lib/utils'
 
-type Tab = 'departments' | 'products' | 'templates' | 'smtp'
+type Tab = 'departments' | 'products' | 'templates' | 'smtp' | 'ai'
 
 export default function ManagementPage() {
   const router = useRouter()
@@ -23,6 +23,7 @@ export default function ManagementPage() {
     { key: 'products', label: '产品管理', icon: '📦' },
     { key: 'templates', label: '模版管理', icon: '📝' },
     { key: 'smtp', label: '邮件配置', icon: '📧' },
+    { key: 'ai', label: 'AI配置', icon: '🤖' },
   ]
 
   return (
@@ -46,6 +47,7 @@ export default function ManagementPage() {
       {tab === 'products' && <ProductsPanel currentUser={currentUser} />}
       {tab === 'templates' && <TemplatesPanel />}
       {tab === 'smtp' && <SmtpPanel currentUser={currentUser} />}
+      {tab === 'ai' && <AiConfigPanel currentUser={currentUser} />}
     </div>
   )
 }
@@ -487,5 +489,58 @@ function SmptTemplateCard({ icon, color, title, desc, templateKey, subject: defa
         </div>
       )}
     </>
+  )
+}
+
+function AiConfigPanel({ currentUser }: { currentUser: any }) {
+  const [config, setConfig] = useState({ apiKey: '', baseUrl: 'https://api.openai.com/v1', model: 'gpt-4o-mini', enabled: false })
+  const [saving, setSaving] = useState(false)
+  const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null)
+
+  useEffect(() => {
+    fetch('/api/ai-config').then(r => r.json()).then(d => {
+      if (d) setConfig({ apiKey: '', baseUrl: d.baseUrl || 'https://api.openai.com/v1', model: d.model || 'gpt-4o-mini', enabled: d.enabled || false })
+    })
+  }, [])
+
+  const save = async () => {
+    setSaving(true); setMessage(null)
+    const res = await fetch('/api/ai-config', { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(config) })
+    const data = await res.json()
+    setMessage(data.error ? { type: 'error', text: data.error } : { type: 'success', text: '配置已保存' })
+    setSaving(false)
+  }
+
+  return (
+    <div className="space-y-4">
+      <div className="bg-white rounded-xl border p-6 space-y-4">
+        <div className="flex items-center justify-between">
+          <div>
+            <h2 className="font-semibold">🤖 AI 审批助手配置</h2>
+            <p className="text-xs text-gray-400 mt-0.5">支持 OpenAI 兼容 API（OpenAI / Azure / 本地模型等）</p>
+          </div>
+          <label className="flex items-center gap-2 text-sm">
+            <input type="checkbox" checked={config.enabled} onChange={e => setConfig({ ...config, enabled: e.target.checked })} className="rounded" />
+            {config.enabled ? <span className="text-green-600">已启用</span> : <span className="text-gray-400">已禁用</span>}
+          </label>
+        </div>
+        <div className="grid grid-cols-4 gap-3">
+          <div className="col-span-2"><label className="block text-xs font-medium mb-1">API 地址</label><input value={config.baseUrl} onChange={e => setConfig({ ...config, baseUrl: e.target.value })} className="w-full px-3 py-2 rounded-lg border text-sm focus:ring-2 focus:ring-blue-500 outline-none" placeholder="https://api.openai.com/v1" /></div>
+          <div><label className="block text-xs font-medium mb-1">模型</label><input value={config.model} onChange={e => setConfig({ ...config, model: e.target.value })} className="w-full px-3 py-2 rounded-lg border text-sm focus:ring-2 focus:ring-blue-500 outline-none" placeholder="gpt-4o-mini" /></div>
+          <div><label className="block text-xs font-medium mb-1">API Key</label><input type="password" value={config.apiKey} onChange={e => setConfig({ ...config, apiKey: e.target.value })} className="w-full px-3 py-2 rounded-lg border text-sm focus:ring-2 focus:ring-blue-500 outline-none" placeholder="sk-..." /></div>
+        </div>
+        {message && <div className={classNames('text-sm p-3 rounded-lg', message.type === 'success' ? 'bg-green-50 text-green-700' : 'bg-red-50 text-red-600')}>{message.text}</div>}
+        <button onClick={save} disabled={saving} className="px-8 py-2 bg-gray-900 text-white rounded-lg text-sm font-medium hover:bg-gray-800 disabled:opacity-50">{saving ? '保存中...' : '保存配置'}</button>
+      </div>
+      <div className="bg-purple-50 rounded-xl border border-purple-200 p-6">
+        <h3 className="font-semibold text-purple-900 mb-2">🤖 AI 审批摘要功能</h3>
+        <p className="text-sm text-purple-700 mb-3">在变更详情页的审批区域，点击"AI审批摘要"按钮，AI 将自动分析所有检查项的执行情况并生成审批建议。</p>
+        <div className="text-xs text-purple-600 space-y-1">
+          <p>• 支持 OpenAI / Azure OpenAI / 兼容 API</p>
+          <p>• 推荐模型：gpt-4o-mini（快速低成本）或 gpt-4o（高质量）</p>
+          <p>• 摘要包含：执行概况、风险点、审批建议</p>
+        </div>
+      </div>
+    </div>
   )
 }
