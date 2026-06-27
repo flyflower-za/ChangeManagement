@@ -9,7 +9,9 @@ export default function ApprovalsPage() {
   const [currentUser, setCurrentUser] = useState<any>(null)
   const [loading, setLoading] = useState(true)
   const [actionLoading, setActionLoading] = useState<string | null>(null)
+  const [showApprove, setShowApprove] = useState<{ changeId: string; moduleId: string; moduleName: string } | null>(null)
   const [showReject, setShowReject] = useState<{ changeId: string; moduleId: string; moduleName: string } | null>(null)
+  const [approveComment, setApproveComment] = useState('')
   const [rejectReason, setRejectReason] = useState('')
 
   const loadChanges = () => {
@@ -23,10 +25,12 @@ export default function ApprovalsPage() {
         .map((c: any) => ({
           ...c,
           moduleProgress: c.moduleProgress?.filter((mp: any) => {
-            const isReviewing = mp.status === 'REVIEWING' || mp.status === 'reviewing' ||
-              c.status === 'APPROVING' || c.status === 'APPROVING'
-            if (user.role === 'admin') return isReviewing // 管理员看所有
-            return isReviewing && mp.approverId === user.id // 审批人只看自己的
+            // 只显示状态为 REVIEWING 且需要当前用户审批的模块
+            const needsReview = mp.status === 'REVIEWING' || mp.status === 'reviewing'
+            if (!needsReview) return false // 已审批通过的模块不再显示
+            // 管理员看所有待审批，审批人只看自己的
+            if (user.role === 'admin') return true
+            return mp.approverId === user.id
           }) || []
         }))
         .filter((c: any) => c.moduleProgress.length > 0)
@@ -38,20 +42,33 @@ export default function ApprovalsPage() {
   useEffect(() => { loadChanges() }, [])
 
   const handleApprove = async (changeId: string, moduleId: string) => {
-    setActionLoading(moduleId)
-    await fetch(`/api/changes/${changeId}`, {
+    // Open confirmation modal
+    setShowApprove({ changeId, moduleId, moduleName: '' })
+    setApproveComment('')
+  }
+
+  const confirmApprove = async () => {
+    if (!showApprove) return
+    setActionLoading(showApprove.moduleId)
+    const res = await fetch(`/api/changes/${showApprove.changeId}`, {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ action: 'approve_module', changeModuleId: moduleId }),
+      body: JSON.stringify({ action: 'approve_module', changeModuleId: showApprove.moduleId }),
     })
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({ error: '请求失败' }))
+      alert(err.error || '审批失败')
+    }
     setActionLoading(null)
+    setShowApprove(null)
+    setApproveComment('')
     loadChanges()
   }
 
   const handleReject = async () => {
     if (!showReject || !rejectReason.trim()) return
     setActionLoading(showReject.moduleId)
-    await fetch(`/api/changes/${showReject.changeId}`, {
+    const res = await fetch(`/api/changes/${showReject.changeId}`, {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -61,6 +78,10 @@ export default function ApprovalsPage() {
         rejectItemIds: [],
       }),
     })
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({ error: '请求失败' }))
+      alert(err.error || '驳回失败')
+    }
     setActionLoading(null)
     setShowReject(null)
     setRejectReason('')
@@ -125,7 +146,7 @@ export default function ApprovalsPage() {
                         </div>
                         <div className="flex items-center gap-2">
                           <button
-                            onClick={() => handleApprove(c.id, mp.id)}
+                            onClick={() => setShowApprove({ changeId: c.id, moduleId: mp.id, moduleName: mp.name })}
                             disabled={actionLoading === mp.id}
                             className="px-4 py-1.5 bg-green-600 text-white rounded-lg text-xs font-medium hover:bg-green-500 transition disabled:opacity-50"
                           >
@@ -150,6 +171,31 @@ export default function ApprovalsPage() {
               </div>
             )
           })}
+        </div>
+      )}
+
+      {/* Approve Modal */}
+      {showApprove && (
+        <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50" onClick={() => setShowApprove(null)}>
+          <div className="bg-white rounded-2xl shadow-xl w-full max-w-md p-6" onClick={e => e.stopPropagation()}>
+            <h3 className="text-lg font-bold mb-2">确认审批通过 - {showApprove.moduleName}</h3>
+            <p className="text-sm text-gray-500 mb-4">确认该模块所有检查项已执行完毕？通过后模块状态将变为"已通过"。</p>
+            <label className="block text-sm font-medium mb-1.5">审批意见（可选）</label>
+            <textarea
+              value={approveComment}
+              onChange={e => setApproveComment(e.target.value)}
+              rows={2}
+              className="w-full px-4 py-2.5 rounded-lg border border-gray-300 focus:ring-2 focus:ring-green-500 outline-none transition"
+              placeholder="填写审批意见..."
+            />
+            <div className="flex gap-3 mt-4">
+              <button onClick={() => setShowApprove(null)} className="flex-1 py-2 border rounded-lg text-sm font-medium hover:bg-gray-50">取消</button>
+              <button onClick={confirmApprove} disabled={actionLoading === showApprove.moduleId}
+                className="flex-1 py-2 bg-green-600 text-white rounded-lg text-sm font-medium hover:bg-green-500 transition disabled:opacity-50">
+                {actionLoading === showApprove.moduleId ? '处理中...' : '确认通过'}
+              </button>
+            </div>
+          </div>
         </div>
       )}
 

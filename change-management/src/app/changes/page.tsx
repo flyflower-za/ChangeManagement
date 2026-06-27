@@ -11,7 +11,9 @@ type Change = {
   description?: string
   status: string
   priority: string
+  product?: { name: string } | null
   createdAt: string
+  plannedEnd?: string
   createdById?: string
   initiator: { name: string }
   modules: any[]
@@ -42,11 +44,17 @@ export default function ChangesPage() {
   const filteredChanges = changes.filter(c => {
     if (!search.trim()) return true
     const q = search.toLowerCase()
+    const priorityLabels: Record<string, string> = { critical: '紧急', high: '高', medium: '中', low: '低' }
+    const statusLabels: Record<string, string> = { DRAFT: '草稿', PENDING: '待执行', EXECUTING: '执行中', APPROVING: '待审批', COMPLETED: '已完成', CANCELLED: '已取消' }
     return (
       (c.serial && String(c.serial).includes(q)) ||
       c.title.toLowerCase().includes(q) ||
-      (c.description && c.description.toLowerCase().includes(q)) ||
-      c.initiator?.name.toLowerCase().includes(q)
+      c.initiator?.name.toLowerCase().includes(q) ||
+      (c.product?.name && c.product.name.toLowerCase().includes(q)) ||
+      (priorityLabels[c.priority] || c.priority).includes(q) ||
+      c.priority.toLowerCase().includes(q) ||
+      (statusLabels[c.status] || c.status).includes(q) ||
+      c.status.toLowerCase().includes(q)
     )
   })
 
@@ -126,7 +134,7 @@ export default function ChangesPage() {
           value={search}
           onChange={e => setSearch(e.target.value)}
           className="w-full px-4 py-2.5 pl-10 rounded-lg border border-gray-300 focus:ring-2 focus:ring-blue-500 outline-none transition text-sm"
-          placeholder="搜索变更项目 - 编号、名称、描述、发起人..."
+          placeholder="搜索 - 编号、优先级、标题、产品、状态、发起人..."
         />
         <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400">🔍</span>
         {search && (
@@ -164,76 +172,87 @@ export default function ChangesPage() {
           <Link href="/changes/new" className="text-blue-600 hover:underline mt-2 inline-block">创建第一个变更</Link>
         </div>
       ) : (
-        <div className="space-y-3">
-          {filteredChanges.map(c => {
-            const p = priorityConfig(c.priority)
-            const s = statusConfig(c.status)
-            const pct = c.progress?.total ? Math.round((c.progress.done / c.progress.total) * 100) : 0
-            const modifyAllowed = canModify(c)
-            return (
-              <div key={c.id} className="bg-white rounded-lg border px-4 py-3 hover:shadow-sm transition group">
-                <div className="flex items-center gap-3">
-                  {/* Left: Main Content */}
-                  <Link href={`/changes/${c.id}`} className="flex-1 min-w-0">
-                    <div className="flex items-center gap-3">
-                      {/* Priority + Status + Title + Desc in one row */}
-                      <span className={classNames('inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full text-xs font-medium border flex-shrink-0', p.color)}>
-                        <span className={classNames('w-1.5 h-1.5 rounded-full', p.dot)} />{p.label}
-                      </span>
-                      {c.serial && <span className="text-xs text-gray-400 font-mono flex-shrink-0">#{c.serial}</span>}
-                      <span className="font-medium text-gray-900 truncate">{c.title}</span>
-                      <span className={classNames('px-1.5 py-0.5 rounded-full text-xs flex-shrink-0', s.color)}>{s.label}</span>
-                      {c.description && <span className="text-xs text-gray-400 truncate hidden sm:inline">{c.description}</span>}
-                    </div>
-
-                    {/* Second row: progress + modules + info */}
-                    <div className="flex items-center gap-3 mt-1.5">
-                      {/* Compact progress bar */}
-                      <div className="flex items-center gap-1.5 flex-shrink-0">
-                        <div className="w-16 h-1.5 bg-gray-100 rounded-full overflow-hidden">
-                          <div className="h-full bg-blue-500 rounded-full transition-all" style={{ width: `${pct}%` }} />
+        <div className="bg-white rounded-lg border overflow-hidden">
+          <table className="w-full">
+            <thead>
+              <tr className="bg-gray-50 border-b text-xs font-medium text-gray-500">
+                <th className="pl-4 pr-2 py-2.5 text-left whitespace-nowrap">编号</th>
+                <th className="px-2 py-2.5 text-left whitespace-nowrap">优先级</th>
+                <th className="px-3 py-2.5 text-left">变更标题</th>
+                <th className="px-2 py-2.5 text-left whitespace-nowrap">产品</th>
+                <th className="px-2 py-2.5 text-left whitespace-nowrap">状态</th>
+                <th className="px-2 py-2.5 text-left whitespace-nowrap">进度</th>
+                <th className="px-2 py-2.5 text-left whitespace-nowrap">发起人</th>
+                <th className="px-2 py-2.5 text-left whitespace-nowrap">创建时间</th>
+                <th className="px-2 py-2.5 text-left whitespace-nowrap">截止时间</th>
+                <th className="pr-4 pl-2 py-2.5 text-right whitespace-nowrap">操作</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y">
+              {filteredChanges.map(c => {
+                const p = priorityConfig(c.priority)
+                const s = statusConfig(c.status)
+                const pct = c.progress?.total ? Math.round((c.progress.done / c.progress.total) * 100) : 0
+                const modifyAllowed = canModify(c)
+                return (
+                  <tr key={c.id} className="hover:bg-gray-50 transition group">
+                    <td className="pl-4 pr-2 py-2 text-xs text-gray-400 font-mono whitespace-nowrap">
+                      <Link href={`/changes/${c.id}`}>#{c.serial || '-'}</Link>
+                    </td>
+                    <td className="px-2 py-2 whitespace-nowrap">
+                      <Link href={`/changes/${c.id}`}>
+                        <span className={classNames('inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium border', p.color)}>
+                          <span className={classNames('w-1.5 h-1.5 rounded-full', p.dot)} />{p.label}
+                        </span>
+                      </Link>
+                    </td>
+                    <td className="px-3 py-2 w-full">
+                      <Link href={`/changes/${c.id}`} className="font-medium text-gray-900 truncate block" style={{ maxWidth: 'none' }}>{c.title}</Link>
+                    </td>
+                    <td className="px-2 py-2 text-xs text-gray-500 whitespace-nowrap">
+                      <Link href={`/changes/${c.id}`}>{c.product?.name || '-'}</Link>
+                    </td>
+                    <td className="px-2 py-2 whitespace-nowrap">
+                      <Link href={`/changes/${c.id}`}>
+                        <span className={classNames('px-2 py-0.5 rounded-full text-xs font-medium', s.color)}>{s.label}</span>
+                      </Link>
+                    </td>
+                    <td className="px-4 py-2 whitespace-nowrap">
+                      <div className="flex items-center gap-1.5">
+                        <div className="w-12 h-1 bg-gray-100 rounded-full overflow-hidden">
+                          <div className="h-full bg-blue-500 rounded-full" style={{ width: `${pct}%` }} />
                         </div>
-                        <span className="text-xs text-gray-500">{pct}%</span>
+                        <span className="text-xs text-gray-400 w-8">{pct}%</span>
                       </div>
-
-                      {/* Module tags - compact */}
-                      <div className="flex gap-1 overflow-hidden">
-                        {c.moduleProgress?.map((mp: any) => (
-                          <span key={mp.id} className={classNames(
-                            'text-xs px-1.5 py-0 rounded-full flex-shrink-0',
-                            mp.status === 'approved' || mp.status === 'APPROVED' ? 'text-green-600' :
-                            (mp.status === 'REVIEWING' || mp.status === 'reviewing') ? 'text-purple-600' :
-                            (mp.status === 'EXECUTING' || mp.status === 'executing') ? 'text-amber-600' :
-                            'text-gray-400'
-                          )}>
-                            {mp.name} {mp.done}/{mp.total}
-                          </span>
-                        ))}
-                      </div>
-
-                      <span className="text-xs text-gray-400 flex-shrink-0 ml-auto">
-                        {c.initiator?.name} · {new Date(c.createdAt).toLocaleDateString('zh-CN')}
-                      </span>
-                    </div>
-                  </Link>
-
-                  {/* Right: Action Buttons */}
-                  {modifyAllowed && (
-                    <div className="flex items-center gap-1 flex-shrink-0 opacity-0 group-hover:opacity-100 transition-opacity">
-                      <button onClick={(e) => handleArchive(e, c.id)} disabled={actionLoading === c.id}
-                        className="px-2 py-1 text-xs bg-amber-50 text-amber-600 rounded hover:bg-amber-100 transition whitespace-nowrap">
-                        {actionLoading === c.id ? '...' : '归档'}
-                      </button>
-                      <button onClick={(e) => handleDelete(e, c.id)} disabled={actionLoading === c.id}
-                        className="px-2 py-1 text-xs bg-red-50 text-red-600 rounded hover:bg-red-100 transition whitespace-nowrap">
-                        {actionLoading === c.id ? '...' : '删除'}
-                      </button>
-                    </div>
-                  )}
-                </div>
-              </div>
-            )
-          })}
+                    </td>
+                    <td className="px-2 py-2 text-xs text-gray-500 whitespace-nowrap">
+                      {c.initiator?.name}
+                    </td>
+                    <td className="px-2 py-2 text-xs text-gray-400 whitespace-nowrap">
+                      {new Date(c.createdAt).toLocaleDateString('zh-CN')}
+                    </td>
+                    <td className="px-2 py-2 text-xs text-gray-400 whitespace-nowrap">
+                      {c.plannedEnd ? new Date(c.plannedEnd).toLocaleDateString('zh-CN') : '-'}
+                    </td>
+                    <td className="px-2 py-2 text-right whitespace-nowrap w-0">
+                      {modifyAllowed && (
+                        <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                          <button onClick={(e) => handleArchive(e, c.id)} disabled={actionLoading === c.id}
+                            className="px-2 py-1 text-xs bg-amber-50 text-amber-600 rounded hover:bg-amber-100 transition">
+                            {actionLoading === c.id ? '...' : '归档'}
+                          </button>
+                          <button onClick={(e) => handleDelete(e, c.id)} disabled={actionLoading === c.id}
+                            className="px-2 py-1 text-xs bg-red-50 text-red-600 rounded hover:bg-red-100 transition">
+                            {actionLoading === c.id ? '...' : '删除'}
+                          </button>
+                        </div>
+                      )}
+                    </td>
+                  </tr>
+                )
+              })}
+            </tbody>
+          </table>
         </div>
       )}
     </div>

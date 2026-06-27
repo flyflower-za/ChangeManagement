@@ -6,10 +6,13 @@ import { priorityConfig, statusConfig, classNames } from '@/lib/utils'
 
 type Change = {
   id: string
+  serial?: number
   title: string
   status: string
   priority: string
+  product?: { name: string } | null
   createdAt: string
+  plannedEnd?: string
   initiator: { name: string }
   modules: any[]
   progress: { total: number; done: number }
@@ -93,53 +96,69 @@ export default function DashboardPage() {
           <h2 className="text-lg font-semibold">最近变更</h2>
           <Link href="/changes" className="text-sm text-blue-600 hover:underline">查看全部 →</Link>
         </div>
-        <div className="space-y-3">
-          {changes.slice(0, 5).map(c => {
-            const p = priorityConfig(c.priority)
-            const s = statusConfig(c.status)
-            const pct = c.progress.total > 0 ? Math.round((c.progress.done / c.progress.total) * 100) : 0
-            return (
-              <Link key={c.id} href={`/changes/${c.id}`} className="block bg-white rounded-xl border p-5 hover:shadow-md transition">
-                <div className="flex items-start justify-between">
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2 mb-1">
-                      <span className={classNames('inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium border', p.color)}>
-                        <span className={classNames('w-1.5 h-1.5 rounded-full', p.dot)} />{p.label}
-                      </span>
-                      <span className={classNames('px-2 py-0.5 rounded-full text-xs font-medium', s.color)}>{s.label}</span>
-                    </div>
-                    <h3 className="font-medium text-gray-900 truncate">{c.title}</h3>
-                    <p className="text-xs text-gray-500 mt-1">发起人: {c.initiator?.name} · {new Date(c.createdAt).toLocaleString('zh-CN')}</p>
-                  </div>
-                  <div className="text-right ml-4">
-                    <div className="flex items-center gap-2">
-                      <div className="w-24 h-2 bg-gray-100 rounded-full overflow-hidden">
-                        <div className="h-full bg-blue-500 rounded-full transition-all" style={{ width: `${pct}%` }} />
-                      </div>
-                      <span className="text-sm font-medium text-gray-600">{pct}%</span>
-                    </div>
-                    <div className="flex gap-2 mt-1.5">
-                      {c.moduleProgress.map(mp => (
-                        <span key={mp.id} className={classNames(
-                          'text-xs px-1.5 py-0.5 rounded',
-                          mp.status === 'approved' ? 'text-green-600' :
-                          mp.status === 'reviewing' ? 'text-purple-600' :
-                          mp.status === 'executing' ? 'text-amber-600' :
-                          'text-gray-400'
-                        )}>
-                          {mp.name} {mp.done}/{mp.total}
+        <div className="bg-white rounded-lg border overflow-hidden">
+          <table className="w-full">
+            <thead>
+              <tr className="bg-gray-50 border-b text-xs font-medium text-gray-500">
+                <th className="pl-4 pr-2 py-2.5 text-left whitespace-nowrap">编号</th>
+                <th className="px-2 py-2.5 text-left whitespace-nowrap">优先级</th>
+                <th className="px-3 py-2.5 text-left">变更标题</th>
+                <th className="px-2 py-2.5 text-left whitespace-nowrap">产品</th>
+                <th className="px-2 py-2.5 text-left whitespace-nowrap">状态</th>
+                <th className="px-2 py-2.5 text-left whitespace-nowrap">进度</th>
+                <th className="px-2 py-2.5 text-left whitespace-nowrap">发起人</th>
+                <th className="px-2 py-2.5 text-left whitespace-nowrap">创建时间</th>
+                <th className="pr-4 pl-2 py-2.5 text-left whitespace-nowrap">截止时间</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y">
+              {changes.slice(0, 8).map(c => {
+                const p = priorityConfig(c.priority)
+                const s = statusConfig(c.status)
+                const pct = c.progress.total > 0 ? Math.round((c.progress.done / c.progress.total) * 100) : 0
+                return (
+                  <tr key={c.id} className="hover:bg-gray-50 transition">
+                    <td className="pl-4 pr-2 py-2 text-xs text-gray-400 font-mono whitespace-nowrap">
+                      <Link href={`/changes/${c.id}`}>#{c.serial || '-'}</Link>
+                    </td>
+                    <td className="px-2 py-2 whitespace-nowrap">
+                      <Link href={`/changes/${c.id}`}>
+                        <span className={classNames('inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium border', p.color)}>
+                          <span className={classNames('w-1.5 h-1.5 rounded-full', p.dot)} />{p.label}
                         </span>
-                      ))}
-                    </div>
-                  </div>
-                </div>
-              </Link>
-            )
-          })}
-          {changes.length === 0 && (
-            <div className="text-center py-12 text-gray-400">暂无变更项目</div>
-          )}
+                      </Link>
+                    </td>
+                    <td className="px-3 py-2">
+                      <Link href={`/changes/${c.id}`} className="font-medium text-gray-900 truncate block">{c.title}</Link>
+                    </td>
+                    <td className="px-2 py-2 text-xs text-gray-500 whitespace-nowrap">
+                      <Link href={`/changes/${c.id}`}>{c.product?.name || '-'}</Link>
+                    </td>
+                    <td className="px-2 py-2 whitespace-nowrap">
+                      <Link href={`/changes/${c.id}`}>
+                        <span className={classNames('px-2 py-0.5 rounded-full text-xs font-medium', s.color)}>{s.label}</span>
+                      </Link>
+                    </td>
+                    <td className="px-2 py-2 whitespace-nowrap">
+                      <div className="flex items-center gap-1.5">
+                        <div className="w-10 h-1 bg-gray-100 rounded-full overflow-hidden">
+                          <div className="h-full bg-blue-500 rounded-full" style={{ width: `${pct}%` }} />
+                        </div>
+                        <span className="text-xs text-gray-400">{pct}%</span>
+                      </div>
+                    </td>
+                    <td className="px-2 py-2 text-xs text-gray-500 whitespace-nowrap">{c.initiator?.name}</td>
+                    <td className="px-2 py-2 text-xs text-gray-400 whitespace-nowrap">{new Date(c.createdAt).toLocaleDateString('zh-CN')}</td>
+                    <td className="pr-4 pl-2 py-2 text-xs text-gray-400 whitespace-nowrap">{c.plannedEnd ? new Date(c.plannedEnd).toLocaleDateString('zh-CN') : '-'}</td>
+                  </tr>
+                )
+              })}
+            </tbody>
+          </table>
         </div>
+        {changes.length === 0 && (
+          <div className="text-center py-12 text-gray-400">暂无变更项目</div>
+        )}
       </div>
     </div>
   )
