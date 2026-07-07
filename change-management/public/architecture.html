@@ -1,0 +1,245 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ChangeManagement 系统架构图</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { font-family: 'Courier New', Consolas, monospace; background: #f5f5f5; color: #333; line-height: 1.6; }
+    .container { max-width: 1400px; margin: 0 auto; padding: 40px; }
+    .header { text-align: center; margin-bottom: 40px; }
+    .header h1 { font-size: 32px; font-weight: bold; margin-bottom: 10px; color: #1a1a1a; }
+    .header p { font-size: 16px; color: #666; }
+    .architecture { background: #fff; padding: 30px; border-radius: 8px; box-shadow: 0 4px 20px rgba(0,0,0,0.1); }
+    .layer { position: relative; margin-bottom: 20px; padding: 15px; border: 2px solid #333; background: #fff; }
+    .layer-label { position: absolute; top: -12px; left: 20px; background: #fff; padding: 0 10px; font-weight: bold; font-size: 14px; border: 2px solid #333; }
+    .layer.t-green { border-color: #2e7d32; } .layer.t-green .layer-label { border-color: #2e7d32; color: #2e7d32; }
+    .layer.t-purple { border-color: #7b1fa2; } .layer.t-purple .layer-label { border-color: #7b1fa2; color: #7b1fa2; }
+    .layer.t-red { border-color: #c62828; } .layer.t-red .layer-label { border-color: #c62828; color: #c62828; }
+    .layer.t-orange { border-color: #f57c00; } .layer.t-orange .layer-label { border-color: #f57c00; color: #f57c00; }
+    .box { border: 2px solid #333; background: #fafafa; padding: 12px 15px; min-width: 120px; text-align: center; font-size: 13px; }
+    .box.g { border-color: #2e7d32; background: #e8f5e9; }
+    .box.p { border-color: #7b1fa2; background: #f3e5f5; }
+    .box.r { border-color: #c62828; background: #ffebee; }
+    .box.o { border-color: #f57c00; background: #fff3e0; }
+    .btitle { font-weight: bold; font-size: 14px; margin-bottom: 4px; }
+    .btech { color: #666; font-size: 11px; margin-bottom: 4px; }
+    .bdesc { color: #999; font-size: 11px; }
+    .sub { border: 1px solid #999; background: #fff; padding: 8px 12px; font-size: 12px; text-align: center; min-width: 80px; }
+    .row { display: flex; justify-content: center; gap: 12px; margin-bottom: 15px; flex-wrap: wrap; }
+    .mg { border: 2px dashed #666; padding: 15px; margin: 10px; background: #fafafa; }
+    .mt { font-size: 12px; color: #666; margin-bottom: 10px; text-align: center; }
+    .arrow { text-align: center; font-size: 24px; color: #333; margin: 10px 0; line-height: 1; }
+    .al { font-size: 12px; color: #666; }
+    .legend { margin-top: 30px; padding: 20px; background: #f9f9f9; border: 1px solid #ddd; border-radius: 4px; }
+    .ltitle { font-weight: bold; margin-bottom: 15px; text-align: center; }
+    .litems { display: flex; justify-content: center; flex-wrap: wrap; gap: 20px; }
+    .litem { display: flex; align-items: center; gap: 8px; }
+    .lbox { width: 40px; height: 25px; border: 2px solid #333; }
+    .stats { margin-top: 30px; padding: 20px; background: #f5f5f5; border: 1px solid #ddd; border-radius: 4px; }
+    .stitle { text-align: center; font-weight: bold; margin-bottom: 15px; }
+    .sitems { display: flex; justify-content: space-around; flex-wrap: wrap; gap: 20px; }
+    .sitem { text-align: center; } .snum { font-size: 24px; font-weight: bold; margin-bottom: 5px; }
+    .slabel { font-size: 12px; color: #666; }
+    .df { margin-top: 30px; padding: 20px; background: #fafafa; border: 1px solid #ddd; border-radius: 4px; }
+    .ftitle { text-align: center; font-weight: bold; margin-bottom: 15px; }
+    .fsteps { display: flex; align-items: center; justify-content: center; flex-wrap: wrap; gap: 8px; }
+    .fstep { padding: 8px 15px; border: 2px solid; background: #fff; font-size: 13px; }
+    .farrow { font-size: 20px; color: #666; }
+    .api { margin-top: 30px; padding: 20px; background: #f9f9f9; border: 1px solid #ddd; border-radius: 4px; }
+    .atitle { text-align: center; font-weight: bold; margin-bottom: 15px; }
+    .agrid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 8px; }
+    .aroute { padding: 8px; border: 1px solid #ddd; background: #fff; text-align: center; font-size: 12px; font-family: monospace; }
+    .amethod { font-weight: bold; color: #666; }
+    .sflow { margin-top: 30px; padding: 20px; background: #fafafa; border: 1px solid #ddd; border-radius: 4px; }
+    .sgtitle { text-align: center; font-weight: bold; margin-bottom: 15px; }
+    .sdiag { display: flex; align-items: center; justify-content: center; flex-wrap: wrap; gap: 8px; font-size: 12px; }
+    .sbox { padding: 8px 15px; border: 2px solid; background: #fff; font-weight: bold; }
+    .feature-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 15px; margin-top: 20px; }
+    .fcard { padding: 15px; border: 1px solid #ddd; border-radius: 8px; background: #fff; }
+    .fcard-title { font-weight: bold; margin-bottom: 8px; font-size: 15px; }
+    .fcard-desc { font-size: 12px; color: #666; }
+    @media (max-width: 768px) { .container { padding: 20px; } .row { flex-direction: column; align-items: center; } .box { width: 100%; max-width: 300px; } .fsteps, .sdiag { flex-direction: column; } .farrow { transform: rotate(90deg); } }
+  </style>
+</head>
+<body>
+<div class="container">
+  <div class="header">
+    <h1>🔄 ChangeManagement - 系统架构图 v2.0</h1>
+    <p>企业级变更管理系统 · 产品驱动 · Checklist执行 · AI审批辅助 · 邮件通知 · LDAP集成</p>
+  </div>
+
+  <!-- Architecture Layers -->
+  <div class="architecture">
+    <!-- Frontend -->
+    <div class="layer t-green"><div class="layer-label">用户界面层 (Frontend)</div>
+      <div class="row">
+        <div class="box g"><div class="btitle">📊 仪表盘</div><div class="btech">/</div><div class="bdesc">统计卡片+最近变更</div></div>
+        <div class="box g"><div class="btitle">📋 变更项目</div><div class="btech">/changes/*</div><div class="bdesc">列表/创建/详情/执行/审批</div></div>
+        <div class="box g"><div class="btitle">✅ 我的待办</div><div class="btech">/my-tasks</div><div class="bdesc">执行任务+待审批</div></div>
+        <div class="box g"><div class="btitle">📜 变更历史</div><div class="btech">/history</div><div class="bdesc">全部变更记录</div></div>
+        <div class="box g"><div class="btitle">🔔 审批中心</div><div class="btech">/approvals</div><div class="bdesc">按审批人过滤+直接审批</div></div>
+        <div class="box g"><div class="btitle">⚙️ 管理中心</div><div class="btech">/management</div><div class="bdesc">部门/产品/模版/邮件/AI</div></div>
+        <div class="box g"><div class="btitle">👥 用户管理</div><div class="btech">/users</div><div class="bdesc">用户/权限组/LDAP</div></div>
+      </div>
+    </div>
+    <div class="arrow">↓<div class="al">HTTP/JSON · Client Components</div></div>
+
+    <!-- API Layer -->
+    <div class="layer t-purple"><div class="layer-label">API 路由层 (API Layer)</div>
+      <div class="row">
+        <div class="box p"><div class="btitle">认证&用户</div><div class="bdesc">/api/auth /api/me /api/users /api/permission-groups</div></div>
+        <div class="box p"><div class="btitle">变更项目</div><div class="bdesc">/api/changes /api/changes/[id]</div></div>
+        <div class="box p"><div class="btitle">部门&模版</div><div class="bdesc">/api/modules /api/checklist-templates</div></div>
+        <div class="box p"><div class="btitle">产品&产线</div><div class="bdesc">/api/products /api/production-lines</div></div>
+        <div class="box p"><div class="btitle">我的待办</div><div class="bdesc">/api/my-tasks/checklist /api/my-tasks/approvals</div></div>
+        <div class="box p"><div class="btitle">文件上传</div><div class="bdesc">/api/upload (图片/PDF/Word/Excel)</div></div>
+        <div class="box p"><div class="btitle">邮件&AI</div><div class="bdesc">/api/smtp /api/email-templates /api/ai-summary /api/ai-config</div></div>
+        <div class="box p"><div class="btitle">LDAP</div><div class="bdesc">/api/ldap</div></div>
+      </div>
+    </div>
+    <div class="arrow">↓<div class="al">Function Calls · Data Access</div></div>
+
+    <!-- Business Logic -->
+    <div class="layer t-red"><div class="layer-label">业务逻辑层 (Business Logic)</div>
+      <div class="row">
+        <div class="box r"><div class="btitle">🔐 权限系统</div><div class="bdesc">lib/permissions.ts · isModuleManager · canEditModule</div></div>
+        <div class="box r"><div class="btitle">👤 认证系统</div><div class="bdesc">lib/auth.ts · Iron-session · bcrypt</div></div>
+        <div class="box r"><div class="btitle">📧 邮件通知</div><div class="bdesc">lib/notify.ts · 8种触发场景 · nodemailer</div></div>
+        <div class="box r"><div class="btitle">🗄️ 数据库</div><div class="bdesc">lib/db.ts · Prisma Client Singleton</div></div>
+        <div class="box r"><div class="btitle">🛠️ 工具</div><div class="bdesc">lib/utils.ts · statusConfig · priorityConfig</div></div>
+      </div>
+    </div>
+    <div class="arrow">↓<div class="al">Prisma ORM · SQLite</div></div>
+
+    <!-- Database -->
+    <div class="layer t-orange"><div class="layer-label">数据持久层 (Database)</div>
+      <div class="row">
+        <div class="box o"><div class="btitle">SQLite Database</div><div class="bdesc">prisma/dev.db</div></div>
+        <div class="box o"><div class="btitle">Prisma ORM v6</div><div class="bdesc">类型安全的数据库访问</div></div>
+      </div>
+      <div class="mg"><div class="mt">核心数据模型 (16个)</div>
+        <div class="row">
+          <div class="sub">User</div><div class="sub">Factory</div><div class="sub">Module</div><div class="sub">Product</div>
+          <div class="sub">ProductAssignment</div><div class="sub">ProductionLine</div><div class="sub">ChangeProject</div><div class="sub">ChangeModule</div>
+          <div class="sub">ChecklistItem</div><div class="sub">ChecklistTemplate</div><div class="sub">ChecklistItemDef</div><div class="sub">Attachment</div>
+          <div class="sub">SmtpConfig</div><div class="sub">EmailTemplate</div><div class="sub">AiConfig</div><div class="sub">LdapConfig</div>
+          <div class="sub">PermissionGroup</div><div class="sub">DepartmentContact</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Legend -->
+  <div class="legend">
+    <div class="ltitle">📖 图例说明</div>
+    <div class="litems">
+      <div class="litem"><div class="lbox" style="border-color:#2e7d32;background:#e8f5e9"></div><span>前端</span></div>
+      <div class="litem"><div class="lbox" style="border-color:#7b1fa2;background:#f3e5f5"></div><span>API路由</span></div>
+      <div class="litem"><div class="lbox" style="border-color:#c62828;background:#ffebee"></div><span>业务逻辑</span></div>
+      <div class="litem"><div class="lbox" style="border-color:#f57c00;background:#fff3e0"></div><span>数据库</span></div>
+    </div>
+  </div>
+
+  <!-- Statistics -->
+  <div class="stats">
+    <div class="stitle">📊 项目统计</div>
+    <div class="sitems">
+      <div class="sitem"><div class="snum" style="color:#2e7d32">7</div><div class="slabel">主要页面</div></div>
+      <div class="sitem"><div class="snum" style="color:#7b1fa2">16</div><div class="slabel">API 端点</div></div>
+      <div class="sitem"><div class="snum" style="color:#c62828">18</div><div class="slabel">数据模型</div></div>
+      <div class="sitem"><div class="snum" style="color:#f57c00">3</div><div class="slabel">用户角色</div></div>
+      <div class="sitem"><div class="snum" style="color:#e67e22">8</div><div class="slabel">邮件通知</div></div>
+      <div class="sitem"><div class="snum" style="color:#9b59b6">3</div><div class="slabel">状态机</div></div>
+    </div>
+  </div>
+
+  <!-- Key Features -->
+  <div style="margin-top:40px">
+    <h2 style="text-align:center;font-size:20px;font-weight:bold;margin-bottom:20px">🌟 关键特性</h2>
+    <div class="feature-grid">
+      <div class="fcard"><div class="fcard-title">🎯 产品驱动</div><div class="fcard-desc">选产品→自动关联各部门负责人，人员信息自动匹配</div></div>
+      <div class="fcard"><div class="fcard-title">📝 文件证据</div><div class="fcard-desc">执行时上传图片/PDF/Word/Excel，审批时可下载查看</div></div>
+      <div class="fcard"><div class="fcard-title">🤖 AI审批摘要</div><div class="fcard-desc">配置OpenAI后自动分析检查项生成审批建议，提示词可自定义</div></div>
+      <div class="fcard"><div class="fcard-title">📧 邮件通知</div><div class="fcard-desc">8种触发场景，HTML模板可自定义，支持SMTP配置和测试</div></div>
+      <div class="fcard"><div class="fcard-title">🔒 权限控制</div><div class="fcard-desc">admin/approver/executor三级，审批人只看自己的审批项</div></div>
+      <div class="fcard"><div class="fcard-title">🔍 全字段搜索</div><div class="fcard-desc">编号、标题、产品、优先级、状态、发起人</div></div>
+      <div class="fcard"><div class="fcard-title">🔄 单项驳回</div><div class="fcard-desc">审批人可单独驳回任意检查项，不影响其他已完成项</div></div>
+      <div class="fcard"><div class="fcard-title">📡 LDAP集成</div><div class="fcard-desc">支持Active Directory等目录服务的用户认证集成</div></div>
+    </div>
+  </div>
+
+  <!-- Status Machines -->
+  <div style="margin-top:40px">
+    <h2 style="text-align:center;font-size:20px;font-weight:bold;margin-bottom:20px">📊 状态机模型</h2>
+    <div class="sflow">
+      <div class="sgtitle">ChangeProject</div>
+      <div class="sdiag">
+        <div class="sbox" style="border-color:#999;color:#999">DRAFT</div><span style="color:#666">→</span>
+        <div class="sbox" style="border-color:#2e7d32;color:#2e7d32">PENDING</div><span style="color:#666">→</span>
+        <div class="sbox" style="border-color:#7b1fa2;color:#7b1fa2">EXECUTING</div><span style="color:#666">→</span>
+        <div class="sbox" style="border-color:#e67e22;color:#e67e22">APPROVING</div><span style="color:#666">→</span>
+        <div class="sbox" style="border-color:#27ae60;color:#27ae60">COMPLETED</div>
+      </div>
+      <div style="text-align:center;margin-top:10px;color:#c62828">任何状态 → CANCELLED</div>
+    </div>
+    <div class="sflow">
+      <div class="sgtitle">ChecklistItem</div>
+      <div class="sdiag">
+        <div class="sbox" style="border-color:#999;color:#999">PENDING</div><span style="color:#666">→</span>
+        <div class="sbox" style="border-color:#27ae60;color:#27ae60">DONE</div>
+        <div style="margin:0 10px">|</div>
+        <div class="sbox" style="border-color:#7f8c8d;color:#7f8c8d">NOT_APPLICABLE</div>
+        <div style="margin:0 10px">|</div>
+        <div class="sbox" style="border-color:#c62828;color:#c62828">REJECTED</div><span style="color:#666">→</span>
+        <div class="sbox" style="border-color:#999;color:#999">PENDING</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- API Routes -->
+  <div class="api">
+    <div class="atitle">🛣️ 核心 API 路由</div>
+    <div class="agrid">
+      <div class="aroute"><span class="amethod">POST/DELETE</span> /api/auth</div>
+      <div class="aroute"><span class="amethod">GET</span> /api/me</div>
+      <div class="aroute"><span class="amethod">GET/POST/PUT</span> /api/users</div>
+      <div class="aroute"><span class="amethod">GET/POST/DELETE</span> /api/permission-groups</div>
+      <div class="aroute"><span class="amethod">GET/POST</span> /api/changes</div>
+      <div class="aroute"><span class="amethod">GET/PATCH/DELETE</span> /api/changes/[id]</div>
+      <div class="aroute"><span class="amethod">GET/POST/PUT/DELETE</span> /api/modules</div>
+      <div class="aroute"><span class="amethod">GET/POST/PUT</span> /api/checklist-templates</div>
+      <div class="aroute"><span class="amethod">GET/POST/PUT/DELETE</span> /api/products</div>
+      <div class="aroute"><span class="amethod">GET/POST/PUT/DELETE</span> /api/production-lines</div>
+      <div class="aroute"><span class="amethod">GET</span> /api/my-tasks/checklist</div>
+      <div class="aroute"><span class="amethod">GET</span> /api/my-tasks/approvals</div>
+      <div class="aroute"><span class="amethod">POST/DELETE</span> /api/upload</div>
+      <div class="aroute"><span class="amethod">GET/PUT/POST</span> /api/smtp</div>
+      <div class="aroute"><span class="amethod">GET/PUT/POST</span> /api/email-templates</div>
+      <div class="aroute"><span class="amethod">POST</span> /api/ai-summary</div>
+      <div class="aroute"><span class="amethod">GET/PUT</span> /api/ai-config</div>
+      <div class="aroute"><span class="amethod">GET/PUT/POST</span> /api/ldap</div>
+    </div>
+  </div>
+
+  <!-- Notification Rules -->
+  <div style="margin-top:30px;padding:20px;background:#e8f5e9;border:1px solid #2e7d32;border-radius:4px">
+    <div class="stitle" style="color:#2e7d32">📬 邮件通知规则 (8种)</div>
+    <div class="row" style="font-size:12px">
+      <div class="sub">📋 创建→发起人+审批人</div>
+      <div class="sub">⏳ 完成→审批人</div>
+      <div class="sub">✅ 审批结果→发起人</div>
+      <div class="sub">⏰ 到期→执行人+审批人</div>
+      <div class="sub">❌ 驳回→执行人</div>
+      <div class="sub">👤 分配→执行人</div>
+      <div class="sub">🏁 完成→全员</div>
+      <div class="sub">📊 汇总→审批人</div>
+    </div>
+  </div>
+
+</div>
+<div style="text-align:center;margin-top:30px;font-size:12px;color:#999">
+  Generated for ChangeManagement System v2 · Built with Next.js + Prisma + SQLite · Updated 2026-06-27
+</div>
+</body>
+</html>

@@ -1,0 +1,295 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = "file:./dev.db"
+}
+
+model User {
+  id               String              @id @default(cuid())
+  username         String?             @unique // 登录用户名（可选，默认同email）
+  name             String              // 显示姓名
+  email            String              @unique
+  password         String?
+  role             String              @default("executor")
+  departmentId     String?
+  department       Module?             @relation(fields: [departmentId], references: [id])
+  groupId          String?
+  group            PermissionGroup?    @relation(fields: [groupId], references: [id])
+  createdAt        DateTime            @default(now())
+  modulesManaged   Module[]            @relation("ModuleManager")
+  moduleApprovals  ChangeModule[]      @relation("Approver")
+  initiatedChanges ChangeProject[]     @relation("Initiator")
+  checklistItems   ChecklistItem[]     @relation("Executor")
+  templatesCreated ChecklistTemplate[] @relation("TemplateCreator")
+}
+
+model Factory {
+  id          String   @id @default(cuid())
+  name        String   @unique
+  description String?
+  createdAt   DateTime @default(now())
+  departments Module[]
+
+  @@map("factories")
+}
+
+model Module {
+  id            String              @id @default(cuid())
+  factoryId     String
+  name          String
+  description   String?
+  isActive      Boolean             @default(true)
+  createdAt     DateTime            @default(now())
+  managerId     String?
+  factory       Factory             @relation(fields: [factoryId], references: [id])
+  manager       User?               @relation("ModuleManager", fields: [managerId], references: [id])
+  members       User[]              // 部门成员
+  changeModules ChangeModule[]
+  templates     ChecklistTemplate[]
+  contacts      DepartmentContact[]
+  productAssignments ProductAssignment[]
+  productionLines    ProductionLine[]
+}
+
+model DepartmentContact {
+  id        String  @id @default(cuid())
+  moduleId  String
+  name      String
+  title     String
+  sortOrder Int    @default(0)
+  module    Module @relation(fields: [moduleId], references: [id], onDelete: Cascade)
+
+  @@map("department_contacts")
+}
+
+// 产品 - 跨部门独立实体
+model Product {
+  id          String              @id @default(cuid())
+  name        String              // 产品名称，如"产品A"
+  code        String?             // 产品编号
+  description String?
+  sortOrder   Int                 @default(0)
+  createdAt   DateTime            @default(now())
+  assignments ProductAssignment[] // 各部门负责人
+  lines       ProductionLine[]    // 关联的产线
+  changes     ChangeProject[]     // 关联的变更项目
+
+  @@map("products")
+}
+
+// 产品-部门-负责人 关联
+model ProductAssignment {
+  id        String  @id @default(cuid())
+  productId String
+  moduleId  String
+  person    String  // 该部门负责此产品的工程师
+  product   Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+  module    Module  @relation(fields: [moduleId], references: [id], onDelete: Cascade)
+
+  @@unique([productId, moduleId])
+  @@map("product_assignments")
+}
+
+// 产线 - 属于某个部门/车间
+model ProductionLine {
+  id          String  @id @default(cuid())
+  name        String  // 产线名称，如"产线1"
+  code        String? // 线号，如"L1"
+  moduleId    String  // 所属部门（车间所在部门）
+  productId   String? // 产出的产品
+  sortOrder   Int     @default(0)
+  module      Module  @relation(fields: [moduleId], references: [id], onDelete: Cascade)
+  product     Product? @relation(fields: [productId], references: [id])
+
+  @@map("production_lines")
+}
+
+model ChecklistTemplate {
+  id          String             @id @default(cuid())
+  moduleId    String
+  name        String
+  description String?
+  createdBy   String?
+  createdAt   DateTime           @default(now())
+  updatedAt   DateTime           @updatedAt
+  items       ChecklistItemDef[]
+  module      Module             @relation(fields: [moduleId], references: [id])
+  creator     User?              @relation("TemplateCreator", fields: [createdBy], references: [id])
+
+  @@map("checklist_templates")
+}
+
+model ChecklistItemDef {
+  id                String            @id @default(cuid())
+  templateId        String
+  title             String
+  description       String?
+  expectedResult    String?
+  evidenceType      String            @default("text")
+  isRequired        Boolean           @default(true)
+  defaultExecutorId String?
+  sortOrder         Int               @default(0)
+  template          ChecklistTemplate @relation(fields: [templateId], references: [id], onDelete: Cascade)
+
+  @@map("checklist_item_defs")
+}
+
+model ChangeProject {
+  id           String              @id @default(cuid())
+  serial       Int                 @unique // 自增编号，从1开始
+  title        String
+  description  String?
+  priority     String              @default("medium")
+  status       ChangeProjectStatus @default(DRAFT)
+  productId    String?
+  product      Product?            @relation(fields: [productId], references: [id])
+  plannedStart DateTime?
+  plannedEnd   DateTime?
+  createdById  String
+  createdAt    DateTime            @default(now())
+  updatedAt    DateTime            @updatedAt
+  completedAt  DateTime?
+  cancelledAt  DateTime?
+  modules      ChangeModule[]
+  initiator    User                @relation("Initiator", fields: [createdById], references: [id])
+
+  @@map("change_projects")
+}
+
+model ChangeModule {
+  id              String             @id @default(cuid())
+  changeProjectId String
+  moduleId        String
+  status          ChangeModuleStatus @default(PENDING)
+  approverId      String?
+  approvedAt      DateTime?
+  rejectReason    String?
+  approver        User?              @relation("Approver", fields: [approverId], references: [id])
+  module          Module             @relation(fields: [moduleId], references: [id])
+  changeProject   ChangeProject      @relation(fields: [changeProjectId], references: [id], onDelete: Cascade)
+  items           ChecklistItem[]
+
+  @@map("change_modules")
+}
+
+model ChecklistItem {
+  id             String              @id @default(cuid())
+  changeModuleId String
+  title          String
+  description    String?
+  expectedResult String?
+  evidenceType   String              @default("text")
+  isRequired     Boolean             @default(true)
+  status         ChecklistItemStatus @default(PENDING)
+  executorId     String?
+  executedAt     DateTime?
+  evidenceNotes  String?
+  rejectReason   String?
+  sortOrder      Int                 @default(0)
+  executor       User?               @relation("Executor", fields: [executorId], references: [id])
+  changeModule   ChangeModule        @relation(fields: [changeModuleId], references: [id], onDelete: Cascade)
+  attachments    Attachment[]
+
+  @@map("checklist_items")
+}
+
+model Attachment {
+  id              String        @id @default(cuid())
+  checklistItemId String
+  fileName        String
+  filePath        String
+  fileType        String        // image, pdf, word, excel, other
+  fileSize        Int
+  createdAt       DateTime      @default(now())
+  checklistItem   ChecklistItem @relation(fields: [checklistItemId], references: [id], onDelete: Cascade)
+
+  @@map("attachments")
+}
+
+model SmtpConfig {
+  id         String  @id @default(cuid())
+  host       String
+  port       Int
+  user       String  // 发件人邮箱（兼SMTP认证用户名）
+  pass       String? // 密码，可选
+  encryption String  @default("none") // none, tls, ssl
+  enabled    Boolean @default(false)
+  updatedAt  DateTime @updatedAt
+
+  @@map("smtp_config")
+}
+
+model EmailTemplate {
+  id      String @id @default(cuid())
+  key     String @unique // 通知类型标识: change_created, approval_reminder, etc.
+  name    String // 模板名称
+  subject String // 默认主题
+  body    String // HTML正文
+  updatedAt DateTime @updatedAt
+
+  @@map("email_templates")
+}
+
+model PermissionGroup {
+  id          String @id @default(cuid())
+  name        String @unique // 组名
+  description String?
+  role        String // 组对应的系统角色: admin, approver, executor
+  createdAt   DateTime @default(now())
+  members     User[] // 组成员
+
+  @@map("permission_groups")
+}
+
+model LdapConfig {
+  id        String  @id @default(cuid())
+  url       String  // LDAP服务器地址
+  baseDN    String  // 搜索基础DN
+  bindDN    String? // 绑定DN
+  bindPass  String? // 绑定密码
+  filter    String  @default("(sAMAccountName={{username}})") // 用户搜索过滤器
+  enabled   Boolean @default(false)
+  updatedAt DateTime @updatedAt
+
+  @@map("ldap_config")
+}
+
+model AiConfig {
+  id        String  @id @default(cuid())
+  apiKey    String  // API密钥
+  baseUrl   String  @default("https://api.openai.com/v1") // API地址
+  model     String  @default("gpt-4o-mini") // 模型名称
+  prompt    String  @default("") // 自定义提示词模板
+  enabled   Boolean @default(false)
+  updatedAt DateTime @updatedAt
+
+  @@map("ai_config")
+}
+
+enum ChangeProjectStatus {
+  DRAFT
+  PENDING
+  EXECUTING
+  APPROVING
+  COMPLETED
+  CANCELLED
+}
+
+enum ChangeModuleStatus {
+  PENDING
+  EXECUTING
+  REVIEWING
+  APPROVED
+  REJECTED
+}
+
+enum ChecklistItemStatus {
+  PENDING
+  IN_PROGRESS
+  DONE
+  REJECTED
+  NOT_APPLICABLE
+}
